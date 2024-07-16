@@ -32,5 +32,4 @@ pair_to_points = {
 
 def part2():
     with open("data/day2.txt", "r", encoding="utf-8") as data:
-        return sum([pair_to_points[l[:3]] for l in  data.readlines()])
-    
+        return sum(pair_to_points[l[:3]] for l in  data.readlines())
