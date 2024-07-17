@@ -15,7 +15,7 @@ def general_solution(pattern_len):
             if all_different(text[i:i + pattern_len]):
                 return i + pattern_len
 
-        raise Exception("No solution found")
+        raise ValueError("No solution found")
 
 def part1():
     return general_solution(4)
