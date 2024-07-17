@@ -19,7 +19,6 @@ def line_to_points(line):
 
     return 0
 
-
 def part1():
     with open("data/day3.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
@@ -28,15 +27,15 @@ def part1():
 def part2():
     with open("data/day3.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
-        length = len(data.readlines())
+        length = len(lines)
         result = 0
 
         for i in range(0, length, 3):
-            symbols = [set(lines[j]) for j in range(i, i + 3)]
+            symbols = [set((lines[j]).strip()) for j in range(i, i + 3)]
 
             final = (symbols[0].intersection(symbols[1])).intersection(symbols[2])
 
             for c in final:
                 result += char_to_idx(c) + 1
-        
+
         return result
