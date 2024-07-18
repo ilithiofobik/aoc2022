@@ -13,6 +13,34 @@ def read_the_forest(lines):
     return forest, num_of_rows, num_of_cols
 
 
+def create_boolean_array(num_of_rows, num_of_cols):
+    is_visible = []
+    for _ in range(num_of_rows):
+        is_visible.append([False] * num_of_cols)
+
+    return is_visible
+
+
+def row_col_check(xs, ys, forest, is_visible, x_is_row):
+    row, col = 0, 0
+    for x in xs:
+        if x_is_row:
+            row = x
+        else:
+            col = x
+
+        curr_max = -1
+        for y in ys:
+            if x_is_row:
+                col = y
+            else:
+                row = y
+
+            if forest[row][col] > curr_max:
+                is_visible[row][col] = True
+                curr_max = forest[row][col]
+
+
 def part1():
     with open("data/day8.txt", "r", encoding="utf-8") as data:
         # read the forest
@@ -20,41 +48,24 @@ def part1():
         forest, num_of_rows, num_of_cols = read_the_forest(lines)
 
         # is tree visible
-        is_visible = []
-        for _ in range(num_of_rows):
-            is_visible.append([False] * num_of_cols)
+        is_visible = create_boolean_array(num_of_rows, num_of_cols)
 
         # left to right
-        for row in range(num_of_rows):
-            curr_max = -1
-            for col in range(num_of_cols):
-                if forest[row][col] > curr_max:
-                    is_visible[row][col] = True
-                    curr_max = forest[row][col]
-
+        row_col_check(range(num_of_rows), range(num_of_cols), forest, is_visible, True)
         # right to left
-        for row in range(num_of_rows):
-            curr_max = -1
-            for col in range(num_of_cols - 1, -1, -1):
-                if forest[row][col] > curr_max:
-                    is_visible[row][col] = True
-                    curr_max = forest[row][col]
-
+        row_col_check(
+            range(num_of_rows), range(num_of_cols - 1, -1, -1), forest, is_visible, True
+        )
         # top to bottom
-        for col in range(num_of_cols):
-            curr_max = -1
-            for row in range(num_of_rows):
-                if forest[row][col] > curr_max:
-                    is_visible[row][col] = True
-                    curr_max = forest[row][col]
-
+        row_col_check(range(num_of_cols), range(num_of_rows), forest, is_visible, False)
         # bottom to top
-        for col in range(num_of_cols):
-            curr_max = -1
-            for row in range(num_of_rows - 1, -1, -1):
-                if forest[row][col] > curr_max:
-                    is_visible[row][col] = True
-                    curr_max = forest[row][col]
+        row_col_check(
+            range(num_of_cols),
+            range(num_of_rows - 1, -1, -1),
+            forest,
+            is_visible,
+            False,
+        )
 
         # count the trees
         count = 0
