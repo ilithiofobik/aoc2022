@@ -30,7 +30,6 @@ def part2():
         x = 1
         x_arr = [1]
         cycle = 1
-        idxs = list(i for i in range(20, 221, 40))
         result = 0
 
         for line in data.readlines():
