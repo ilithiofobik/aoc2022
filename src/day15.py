@@ -31,9 +31,6 @@ class Intervals:
         return min(a_s, b_s), max(a_t, b_t)
 
     def add_interval(self, s, t):
-        print("before adding interval {}, {}".format(s, t))
-        print(self.intervals)
-
         new_interval = (s, t)
         new_intervals = []
 
@@ -45,9 +42,6 @@ class Intervals:
 
         new_intervals.append(new_interval)
         self.intervals = new_intervals
-
-        print("after adding interval {}, {}".format(s, t))
-        print(self.intervals)
 
     def get_length(self):
         return sum(t - s + 1 for s, t in self.intervals)
@@ -70,5 +64,4 @@ def part1():
             if x_distance >= 0:
                 forbidden.add_interval(x_s - x_distance, x_s + x_distance)
 
-        print(forbidden.intervals)
         return forbidden.get_length() - len(beacons)
