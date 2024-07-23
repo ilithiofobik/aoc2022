@@ -1,7 +1,8 @@
 def char_to_idx(c):
-    if ord('a') <= ord(c):
-        return ord(c) - ord('a')
-    return ord(c) - ord('A') + 26
+    if ord("a") <= ord(c):
+        return ord(c) - ord("a")
+    return ord(c) - ord("A") + 26
+
 
 def line_to_points(line):
     length = len(line)
@@ -19,10 +20,12 @@ def line_to_points(line):
 
     return 0
 
+
 def part1():
     with open("data/day3.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
         return sum(line_to_points(l) for l in lines)
+
 
 def part2():
     with open("data/day3.txt", "r", encoding="utf-8") as data:

@@ -16,7 +16,7 @@ def read_input(data):
 
     instructions = []
 
-    for line in lines[indices_idx + 2:]:
+    for line in lines[indices_idx + 2 :]:
         words = line.split()
         num = int(words[1])
         from_stack = int(words[3])
@@ -24,6 +24,7 @@ def read_input(data):
         instructions.append((num, from_stack, to_stack))
 
     return stacks, instructions
+
 
 def part1():
     with open("data/day5.txt", "r", encoding="utf-8") as data:
@@ -42,6 +43,7 @@ def part1():
             result += stack[-1]
 
         return result
+
 
 def part2():
     with open("data/day5.txt", "r", encoding="utf-8") as data:

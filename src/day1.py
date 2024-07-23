@@ -13,6 +13,7 @@ def part1():
 
         return max_sum
 
+
 def part2():
     with open("data/day1.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()

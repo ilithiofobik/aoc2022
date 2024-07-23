@@ -97,7 +97,7 @@ def part2():
             distance = manhattan_dist(x_s, y_s, x_b, y_b)
             sensors.append((x_s, y_s, distance))
 
-        sensors.sort(key=lambda x: x[2], reverse=True)
+        sensors.sort(key=lambda x: x[2])
 
         for x, y, dist in sensors:
             for neighbor in distance_neighbors(x, y, dist + 1):
