@@ -81,6 +81,13 @@ def distance_neighbors(x, y, dist):
             yield a, b
 
 
+def conflicting(sensor, pos):
+    a, b, d = sensor
+    x, y = pos
+
+    return manhattan_dist(a, b, x, y) <= d
+
+
 def part2():
     with open("data/day15.txt", "r", encoding="utf-8") as data:
         sensors = []
@@ -94,12 +101,8 @@ def part2():
 
         for x, y, dist in sensors:
             for neighbor in distance_neighbors(x, y, dist + 1):
-                broken = False
-                for a, b, d in sensors:
-                    if manhattan_dist(a, b, neighbor[0], neighbor[1]) <= d:
-                        broken = True
-                        break
-                if not broken:
-                    return MAGIC_COEFF * neighbor[0] + neighbor[1]
+                if any(conflicting(s, neighbor) for s in sensors):
+                    continue
+                return MAGIC_COEFF * neighbor[0] + neighbor[1]
 
         raise ValueError("No solution found")
