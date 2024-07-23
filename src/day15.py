@@ -65,3 +65,41 @@ def part1():
                 forbidden.add_interval(x_s - x_distance, x_s + x_distance)
 
         return forbidden.get_length() - len(beacons)
+
+
+MAGIC_COEFF = 4000000
+
+
+def distance_neighbors(x, y, dist):
+    for dx in range(-dist, dist + 1):
+        dy = dist - abs(dx)
+        potential = set([(x + dx, y + dy), (x + dx, y - dy)])
+
+        for a, b in potential:
+            if a < 0 or b < 0 or a > MAGIC_COEFF or b > MAGIC_COEFF:
+                continue
+            yield a, b
+
+
+def part2():
+    with open("data/day15.txt", "r", encoding="utf-8") as data:
+        sensors = []
+
+        for line in data.readlines():
+            x_s, y_s, x_b, y_b = interpret_sensor_data(line.strip())
+            distance = manhattan_dist(x_s, y_s, x_b, y_b)
+            sensors.append((x_s, y_s, distance))
+
+        sensors.sort(key=lambda x: x[2], reverse=True)
+
+        for x, y, dist in sensors:
+            for neighbor in distance_neighbors(x, y, dist + 1):
+                broken = False
+                for a, b, d in sensors:
+                    if manhattan_dist(a, b, neighbor[0], neighbor[1]) <= d:
+                        broken = True
+                        break
+                if not broken:
+                    return MAGIC_COEFF * neighbor[0] + neighbor[1]
+
+        raise ValueError("No solution found")
