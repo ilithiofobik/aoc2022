@@ -5,11 +5,12 @@ def part1():
         max_sum = 0
 
         for line in lines:
-            if line == "\n":
-                max_sum = max(max_sum, curr_sum)
-                curr_sum = 0
-            else:
-                curr_sum += int(line)
+            match line:
+                case "\n":
+                    max_sum = max(max_sum, curr_sum)
+                    curr_sum = 0
+                case _:
+                    curr_sum += int(line)
 
         return max_sum
 
