@@ -6,4 +6,4 @@ def test_part1():
 
 
 def test_part2():
-    assert day17.part2() == 0
+    assert day17.part2() == 1594842406882

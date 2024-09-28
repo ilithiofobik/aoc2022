@@ -1,6 +1,8 @@
 import itertools
 import dataclasses
+import math
 
+from collections import namedtuple
 from operator import lshift, rshift
 from typing import Literal
 
@@ -70,22 +72,30 @@ def get_new_board() -> list[int]:
     return board
 
 
+State = namedtuple("State", ["top_row", "jet_num", "shape_num"])
+
+
 def get_height(n: int):
     with open("data/day17.txt", "r", encoding="utf-8") as data:
         line = data.readline()
-        jets = itertools.cycle(list(line.strip()))
-        shape_getter = itertools.cycle(shape_getters)
+        jets_list = list(line.strip())
+        jets = itertools.cycle(enumerate(jets_list))
+        shape_getter = itertools.cycle(enumerate(shape_getters))
         board = get_new_board()
         height = 0
+        cycle_steps = math.lcm(len(jets_list), len(shape_getters))
+        states = dict()
 
-        for _ in range(n):
-            shape = next(shape_getter)(position=height + 4)
+        for step in range(n):
+            last_shape, shape = next(shape_getter)
+            shape = shape(position=height + 4)
             is_horizontal = True
             movable = True
+            last_jet = 0
 
             while movable:
                 if is_horizontal:
-                    jet = next(jets)
+                    last_jet, jet = next(jets)
                     if can_move_horizontal(board, shape, jet):
                         shape.move_horizontal(jet)
 
@@ -101,6 +111,23 @@ def get_height(n: int):
             for i, cell in enumerate(shape.cells):
                 board[shape.position + i] |= cell
 
+            curr_state = State(
+                top_row=board[height], jet_num=last_jet, shape_num=last_shape
+            )
+
+            if curr_state in states:
+                prev_height, prev_step = states[curr_state]
+                cycle_len = step - prev_step
+                height_diff = height - prev_height
+                remaining_steps = n - step - 1
+
+                cycles_left, remainder = divmod(remaining_steps, cycle_len)
+
+                if remainder == 0:
+                    return height + cycles_left * height_diff
+
+            states[curr_state] = height, step
+
         return height
 
 
@@ -109,4 +136,4 @@ def part1():
 
 
 def part2():
-    return get_height(1)
+    return get_height(1000000000000)
