@@ -1,16 +1,38 @@
 import itertools
-import dataclasses
-import math
 
 from collections import namedtuple
 from operator import lshift, rshift
-from typing import Literal
+from typing import Literal, Optional
 
 
-@dataclasses.dataclass
+State = namedtuple("State", ["top_row", "jet_num", "shape_num"])
+
+
 class Shape:
     cells: list[int]
     position: int
+
+    def __init__(self, cells: list[int], position: int):
+        self.cells = cells
+        self.position = position
+
+    def can_move_horizontal(
+        self, board: set[tuple[int, int]], jet: Literal["<", ">"]
+    ) -> bool:
+        blocker = 0b1000000 if jet == "<" else 0b0000001
+
+        if any(cell & blocker for cell in self.cells):
+            return False
+
+        op = lshift if jet == "<" else rshift
+        new_cells = [op(cell, 1) for cell in self.cells]
+        pos = self.position
+
+        return all(board[pos + i] & cell == 0 for i, cell in enumerate(new_cells))
+
+    def can_move_vertical(self, board: list[int]) -> bool:
+        pos = self.position - 1
+        return all(board[pos + i] & cell == 0 for i, cell in enumerate(self.cells))
 
     def move_vertical(self) -> None:
         self.position -= 1
@@ -21,6 +43,46 @@ class Shape:
 
     def height(self) -> int:
         return self.position + len(self.cells) - 1
+
+    def perform_full_fall(self, board: list[int], jets) -> None:
+        is_horizontal = True
+        movable = True
+        last_jet = 0
+
+        while movable:
+            if is_horizontal:
+                last_jet, jet = next(jets)
+                if self.can_move_horizontal(board, jet):
+                    self.move_horizontal(jet)
+
+            else:
+                movable = self.can_move_vertical(board)
+                if movable:
+                    self.move_vertical()
+
+            is_horizontal = not is_horizontal
+
+        return last_jet
+
+
+class BoardData:
+    def __init__(self):
+        self.board = 10_000 * [0b0000000]
+        self.board[0] = 0b1111111
+        self.height = 0
+
+    def add_shape(self, shape: Shape) -> None:
+        self.height = max(self.height, shape.height())
+
+        for i, cell in enumerate(shape.cells):
+            self.board[shape.position + i] |= cell
+
+    def current_state(self, last_jet: int, last_shape: int) -> State:
+        return State(
+            top_row=self.board[self.height],
+            jet_num=last_jet,
+            shape_num=last_shape,
+        )
 
 
 def get_minus(position: int) -> Shape:
@@ -43,92 +105,53 @@ def get_square(position: int) -> Shape:
     return Shape(cells=[0b0011000, 0b0011000], position=position)
 
 
-shape_getters = [get_minus, get_plus, get_lshape, get_ishape, get_square]
-
-
-def can_move_horizontal(
-    board: set[tuple[int, int]], shape: Shape, jet: Literal["<", ">"]
-) -> bool:
-    blocker = 0b1000000 if jet == "<" else 0b0000001
-
-    if any(cell & blocker for cell in shape.cells):
-        return False
-
-    op = lshift if jet == "<" else rshift
-    new_cells = [op(cell, 1) for cell in shape.cells]
-    pos = shape.position
-
-    return all(board[pos + i] & cell == 0 for i, cell in enumerate(new_cells))
-
-
-def can_move_vertical(board: list[int], shape: Shape) -> bool:
-    pos = shape.position - 1
-    return all(board[pos + i] & cell == 0 for i, cell in enumerate(shape.cells))
-
-
-def get_new_board() -> list[int]:
-    board = 10_000 * [0b0000000]
-    board[0] = 0b1111111
-    return board
-
-
-State = namedtuple("State", ["top_row", "jet_num", "shape_num"])
-
-
-def get_height(n: int):
+def get_jets():
     with open("data/day17.txt", "r", encoding="utf-8") as data:
         line = data.readline()
         jets_list = list(line.strip())
-        jets = itertools.cycle(enumerate(jets_list))
-        shape_getter = itertools.cycle(enumerate(shape_getters))
-        board = get_new_board()
-        height = 0
-        cycle_steps = math.lcm(len(jets_list), len(shape_getters))
-        states = dict()
+        return itertools.cycle(enumerate(jets_list))
 
-        for step in range(n):
-            last_shape, shape = next(shape_getter)
-            shape = shape(position=height + 4)
-            is_horizontal = True
-            movable = True
-            last_jet = 0
 
-            while movable:
-                if is_horizontal:
-                    last_jet, jet = next(jets)
-                    if can_move_horizontal(board, shape, jet):
-                        shape.move_horizontal(jet)
+def get_shape_getters():
+    getters_list = [get_minus, get_plus, get_lshape, get_ishape, get_square]
+    return itertools.cycle(enumerate(getters_list))
 
-                else:
-                    movable = can_move_vertical(board, shape)
-                    if movable:
-                        shape.move_vertical()
 
-                is_horizontal = not is_horizontal
+def try_to_simulate_cycle(curr_state, states, step, board_data, n) -> Optional[int]:
+    if curr_state in states:
+        prev_height, prev_step = states[curr_state]
+        cycle_len = step - prev_step
+        height_diff = board_data.height - prev_height
+        remaining_steps = n - step
 
-            height = max(height, shape.height())
+        cycles_left, remainder = divmod(remaining_steps, cycle_len)
 
-            for i, cell in enumerate(shape.cells):
-                board[shape.position + i] |= cell
+        if remainder == 0:
+            return board_data.height + cycles_left * height_diff
 
-            curr_state = State(
-                top_row=board[height], jet_num=last_jet, shape_num=last_shape
-            )
+    states[curr_state] = board_data.height, step
 
-            if curr_state in states:
-                prev_height, prev_step = states[curr_state]
-                cycle_len = step - prev_step
-                height_diff = height - prev_height
-                remaining_steps = n - step - 1
+    return None
 
-                cycles_left, remainder = divmod(remaining_steps, cycle_len)
 
-                if remainder == 0:
-                    return height + cycles_left * height_diff
+def get_height(n: int) -> int:
+    jets = get_jets()
+    shape_getter = get_shape_getters()
+    board_data = BoardData()
+    states = {}
 
-            states[curr_state] = height, step
+    for step in range(1, n + 1):
+        last_shape, shape = next(shape_getter)
+        shape = shape(position=board_data.height + 4)
 
-        return height
+        last_jet = shape.perform_full_fall(board_data.board, jets)
+        board_data.add_shape(shape)
+        curr_state = board_data.current_state(last_jet, last_shape)
+
+        if result := try_to_simulate_cycle(curr_state, states, step, board_data, n):
+            return result
+
+    return board_data.height
 
 
 def part1():
@@ -136,4 +159,4 @@ def part1():
 
 
 def part2():
-    return get_height(1000000000000)
+    return get_height(1_000_000_000_000)
