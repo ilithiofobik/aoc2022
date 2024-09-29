@@ -1,109 +1,200 @@
 import re
-from enum import Enum
-import copy
+import functools
 
-Mineral = Enum("Mineral", ["ORE", "CLAY", "OBSIDIAN", "GEODE"])
-
-
-class State:
-    def __init__(self):
-        self.num_of_mineral = {mineral: 0 for mineral in Mineral}
-        self.num_of_robots = {mineral: 0 for mineral in Mineral}
-        self.num_of_robots[Mineral.ORE] = 1
-
-    def buy_to_new(self, mineral):
-        new_state = copy.deepcopy(self)
-        new_state.num_of_robots[mineral] += 1
-        return new_state
-
-    def mine(self):
-        for mineral, number in self.num_of_robots.items():
-            self.num_of_mineral[mineral] += number
-
-    def mine_to_new(self):
-        new_state = copy.deepcopy(self)
-        new_state.mine()
-        return new_state
+from typing import Optional
+from collections import namedtuple
 
 
-class Simulation:
-    def __init__(self, blueprint):
-        self.blueprint = blueprint
-        self.states = set([State()])
-
-    def can_build(self, state, mineral):
-        return all(
-            state.num_of_mineral[m] >= self.blueprint[mineral][m] for m in Mineral
-        )
-
-    def perform_step(self):
-        new_states = set()
-
-        for state in self.states:
-            mine_state = state.mine_to_new()
-            new_states.add(mine_state)
-
-            for mineral in Mineral:
-                if self.can_build(state, mineral):
-                    buy_state = state.buy_to_new(mineral)
-                    buy_state.mine()
-                    new_states.add(buy_state)
-
-        self.states = new_states
-
-    def max_geode(self):
-        result = 0
-
-        for state in self.states:
-            result = max(result, state.num_of_mineral[Mineral.GEODE])
-
-        return result
+OreCost = namedtuple("OreCost", ["ore"])
+ClayCost = namedtuple("ClayCost", ["ore"])
+ObsidianCost = namedtuple("ObsidianCost", ["ore", "clay"])
+GeodeCost = namedtuple("GeodeCost", ["ore", "obsidian"])
+Blueprint = namedtuple(
+    "Blueprint", ["idx", "ore_cost", "clay_cost", "obsidian_cost", "geode_cost"]
+)
+Mineral = namedtuple("Mineral", ["ore", "clay", "obsidian", "geode"])
+State = namedtuple("State", ["time_left", "num_of_mineral", "num_of_robots"])
 
 
-def read_blueprint(line):
+def read_blueprint(line) -> Blueprint:
     integers = re.findall(r"\d+", line)
     integers = list(map(int, integers))
 
-    ore_cost = {mineral: 0 for mineral in Mineral}
-    clay_cost = {mineral: 0 for mineral in Mineral}
-    obsidian_cost = {mineral: 0 for mineral in Mineral}
-    geode_cost = {mineral: 0 for mineral in Mineral}
-
-    ore_cost[Mineral.ORE] = integers[1]
-    clay_cost[Mineral.ORE] = integers[2]
-    obsidian_cost[Mineral.ORE] = integers[3]
-    obsidian_cost[Mineral.CLAY] = integers[4]
-    geode_cost[Mineral.CLAY] = integers[5]
-    geode_cost[Mineral.OBSIDIAN] = integers[6]
-
-    all_costs = {
-        Mineral.ORE: ore_cost,
-        Mineral.CLAY: clay_cost,
-        Mineral.OBSIDIAN: obsidian_cost,
-        Mineral.GEODE: geode_cost,
-    }
-    return all_costs
+    return Blueprint(
+        idx=integers[0],
+        ore_cost=OreCost(ore=integers[1]),
+        clay_cost=ClayCost(ore=integers[2]),
+        obsidian_cost=ObsidianCost(ore=integers[3], clay=integers[4]),
+        geode_cost=GeodeCost(ore=integers[5], obsidian=integers[6]),
+    )
 
 
-NUMBER_OF_MINUTES = 24
+def read_input() -> list[Blueprint]:
+    with open("data/day19.txt", "r", encoding="utf-8") as data:
+        lines = data.readlines()
+        return [read_blueprint(line.strip()) for line in lines]
+
+
+def default_state(time_left: int) -> State:
+    return State(
+        time_left=time_left,
+        num_of_mineral=Mineral(ore=0, clay=0, obsidian=0, geode=0),
+        num_of_robots=Mineral(ore=1, clay=0, obsidian=0, geode=0),
+    )
+
+
+def can_buy_geode(blueprint: Blueprint, state: State) -> bool:
+    return (
+        state.num_of_mineral.ore >= blueprint.geode_cost.ore
+        and state.num_of_mineral.obsidian >= blueprint.geode_cost.obsidian
+    )
+
+
+def try_buy_geode(blueprint: Blueprint, state: State) -> Optional[State]:
+    if (
+        state.num_of_mineral.ore < blueprint.geode_cost.ore
+        or state.num_of_mineral.obsidian < blueprint.geode_cost.obsidian
+    ):
+        return None
+
+    return State(
+        time_left=state.time_left - 1,
+        num_of_mineral=Mineral(
+            ore=state.num_of_mineral.ore
+            - blueprint.geode_cost.ore
+            + state.num_of_robots.ore,
+            clay=state.num_of_mineral.clay + state.num_of_robots.clay,
+            obsidian=state.num_of_mineral.obsidian
+            - blueprint.geode_cost.obsidian
+            + state.num_of_robots.obsidian,
+            geode=state.num_of_mineral.geode + state.num_of_robots.geode,
+        ),
+        num_of_robots=Mineral(
+            ore=state.num_of_robots.ore,
+            clay=state.num_of_robots.clay,
+            obsidian=state.num_of_robots.obsidian,
+            geode=state.num_of_robots.geode + 1,
+        ),
+    )
+
+
+def try_buy_obsidian(blueprint: Blueprint, state: State) -> Optional[State]:
+    if (
+        state.num_of_mineral.ore < blueprint.obsidian_cost.ore
+        or state.num_of_mineral.clay < blueprint.obsidian_cost.clay
+    ):
+        return None
+
+    return State(
+        time_left=state.time_left - 1,
+        num_of_mineral=Mineral(
+            ore=state.num_of_mineral.ore
+            - blueprint.obsidian_cost.ore
+            + state.num_of_robots.ore,
+            clay=state.num_of_mineral.clay
+            - blueprint.obsidian_cost.clay
+            + state.num_of_robots.clay,
+            obsidian=state.num_of_mineral.obsidian + state.num_of_robots.obsidian,
+            geode=state.num_of_mineral.geode + state.num_of_robots.geode,
+        ),
+        num_of_robots=Mineral(
+            ore=state.num_of_robots.ore,
+            clay=state.num_of_robots.clay,
+            obsidian=state.num_of_robots.obsidian + 1,
+            geode=state.num_of_robots.geode,
+        ),
+    )
+
+
+def try_buy_clay(blueprint: Blueprint, state: State) -> Optional[State]:
+    if state.num_of_mineral.ore < blueprint.clay_cost.ore:
+        return None
+
+    return State(
+        time_left=state.time_left - 1,
+        num_of_mineral=Mineral(
+            ore=state.num_of_mineral.ore
+            - blueprint.clay_cost.ore
+            + state.num_of_robots.ore,
+            clay=state.num_of_mineral.clay + state.num_of_robots.clay,
+            obsidian=state.num_of_mineral.obsidian + state.num_of_robots.obsidian,
+            geode=state.num_of_mineral.geode + state.num_of_robots.geode,
+        ),
+        num_of_robots=Mineral(
+            ore=state.num_of_robots.ore,
+            clay=state.num_of_robots.clay + 1,
+            obsidian=state.num_of_robots.obsidian,
+            geode=state.num_of_robots.geode,
+        ),
+    )
+
+
+def try_buy_ore(blueprint: Blueprint, state: State) -> Optional[State]:
+    if state.num_of_mineral.ore < blueprint.ore_cost.ore:
+        return None
+
+    return State(
+        time_left=state.time_left - 1,
+        num_of_mineral=Mineral(
+            ore=state.num_of_mineral.ore
+            - blueprint.ore_cost.ore
+            + state.num_of_robots.ore,
+            clay=state.num_of_mineral.clay + state.num_of_robots.clay,
+            obsidian=state.num_of_mineral.obsidian + state.num_of_robots.obsidian,
+            geode=state.num_of_mineral.geode + state.num_of_robots.geode,
+        ),
+        num_of_robots=Mineral(
+            ore=state.num_of_robots.ore + 1,
+            clay=state.num_of_robots.clay,
+            obsidian=state.num_of_robots.obsidian,
+            geode=state.num_of_robots.geode,
+        ),
+    )
+
+
+def no_buy(state: State) -> State:
+    return State(
+        time_left=state.time_left - 1,
+        num_of_mineral=Mineral(
+            ore=state.num_of_mineral.ore + state.num_of_robots.ore,
+            clay=state.num_of_mineral.clay + state.num_of_robots.clay,
+            obsidian=state.num_of_mineral.obsidian + state.num_of_robots.obsidian,
+            geode=state.num_of_mineral.geode + state.num_of_robots.geode,
+        ),
+        num_of_robots=Mineral(
+            ore=state.num_of_robots.ore,
+            clay=state.num_of_robots.clay,
+            obsidian=state.num_of_robots.obsidian,
+            geode=state.num_of_robots.geode,
+        ),
+    )
+
+
+@functools.cache
+def max_geode(blueprint: Blueprint, state: State) -> int:
+    if state.time_left == 0:
+        return state.num_of_mineral.geode
+
+    possible_states = [no_buy(state)]
+
+    if geode_bought := try_buy_geode(blueprint, state):
+        possible_states.append(geode_bought)
+    elif obsidian_bought := try_buy_obsidian(blueprint, state):
+        possible_states.append(obsidian_bought)
+    elif clay_bought := try_buy_clay(blueprint, state):
+        possible_states.append(clay_bought)
+    elif ore_bought := try_buy_ore(blueprint, state):
+        possible_states.append(ore_bought)
+
+    return max(max_geode(blueprint, new_state) for new_state in possible_states)
 
 
 def part1():
-    with open("data/day19.txt", "r", encoding="utf-8") as data:
-        lines = data.readlines()
-        result = 0
+    blueprints = read_input()
+    result = 0
 
-        for num, line in enumerate(lines, 1):
-            blueprint = read_blueprint(line.strip())
-            simulation = Simulation(blueprint)
+    for blueprint in blueprints:
+        state = default_state(24)
+        result += max_geode(blueprint, state) * blueprint.idx
 
-            for _ in range(NUMBER_OF_MINUTES):
-                simulation.perform_step()
-
-            for state in simulation.states:
-                print(state.num_of_mineral)
-                print(state.num_of_robots)
-
-            result += num * simulation.max_geode()
-
-        return result
+    return result
