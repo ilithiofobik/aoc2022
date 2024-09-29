@@ -1,6 +1,7 @@
 import re
 import functools
 import itertools
+import math
 
 from typing import Optional
 from collections import namedtuple
@@ -196,25 +197,11 @@ def max_geode(blueprint: Blueprint, state: State) -> int:
 
 def part1():
     blueprints = read_input()
-    result = 0
-
-    for blueprint in blueprints:
-        state = default_state(24)
-        value = max_geode(blueprint, state)
-        result += value * blueprint.idx
-        print(f"bp={blueprint.idx}, value={value}")
-
-    return result
+    state = default_state(24)
+    return sum(map(lambda bp: bp.idx * max_geode(bp, state), blueprints))
 
 
 def part2():
     blueprints = read_input()
-    result = 1
-
-    for blueprint in itertools.islice(blueprints, 3):
-        state = default_state(32)
-        value = max_geode(blueprint, state)
-        result *= value
-        print(f"bp={blueprint.idx}, value={value}")
-
-    return result
+    state = default_state(24)  # 32
+    return math.prod(map(lambda bp: max_geode(bp, state), blueprints[:3]))
