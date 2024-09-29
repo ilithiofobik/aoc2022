@@ -1,5 +1,6 @@
 import re
 import functools
+import itertools
 
 from typing import Optional
 from collections import namedtuple
@@ -175,20 +176,22 @@ def max_geode(blueprint: Blueprint, state: State) -> int:
     if state.time_left == 0:
         return state.num_of_mineral.geode
 
-    possible_states = [no_buy(state)]
-
     if geode_bought := try_buy_geode(blueprint, state):
-        # possible_states.append(geode_bought)
         return max_geode(blueprint, geode_bought)
-    elif obsidian_bought := try_buy_obsidian(blueprint, state):
+
+    if obsidian_bought := try_buy_obsidian(blueprint, state):
         return max_geode(blueprint, obsidian_bought)
-    elif clay_bought := try_buy_clay(blueprint, state):
-        possible_states.append(clay_bought)
+
+    nothing_bought = no_buy(state)
+    possible_outcomes = [max_geode(blueprint, nothing_bought)]
+
+    if clay_bought := try_buy_clay(blueprint, state):
+        possible_outcomes.append(max_geode(blueprint, clay_bought))
 
     if ore_bought := try_buy_ore(blueprint, state):
-        possible_states.append(ore_bought)
+        possible_outcomes.append(max_geode(blueprint, ore_bought))
 
-    return max(max_geode(blueprint, new_state) for new_state in possible_states)
+    return max(possible_outcomes)
 
 
 def part1():
@@ -197,6 +200,21 @@ def part1():
 
     for blueprint in blueprints:
         state = default_state(24)
-        result += max_geode(blueprint, state) * blueprint.idx
+        value = max_geode(blueprint, state)
+        result += value * blueprint.idx
+        print(f"bp={blueprint.idx}, value={value}")
+
+    return result
+
+
+def part2():
+    blueprints = read_input()
+    result = 1
+
+    for blueprint in itertools.islice(blueprints, 3):
+        state = default_state(32)
+        value = max_geode(blueprint, state)
+        result *= value
+        print(f"bp={blueprint.idx}, value={value}")
 
     return result
