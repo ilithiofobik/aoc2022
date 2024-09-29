@@ -178,12 +178,14 @@ def max_geode(blueprint: Blueprint, state: State) -> int:
     possible_states = [no_buy(state)]
 
     if geode_bought := try_buy_geode(blueprint, state):
-        possible_states.append(geode_bought)
+        # possible_states.append(geode_bought)
+        return max_geode(blueprint, geode_bought)
     elif obsidian_bought := try_buy_obsidian(blueprint, state):
-        possible_states.append(obsidian_bought)
+        return max_geode(blueprint, obsidian_bought)
     elif clay_bought := try_buy_clay(blueprint, state):
         possible_states.append(clay_bought)
-    elif ore_bought := try_buy_ore(blueprint, state):
+
+    if ore_bought := try_buy_ore(blueprint, state):
         possible_states.append(ore_bought)
 
     return max(max_geode(blueprint, new_state) for new_state in possible_states)
