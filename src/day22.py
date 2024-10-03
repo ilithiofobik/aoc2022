@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Literal, Union, Optional
 from math import gcd
 from collections import namedtuple, defaultdict
@@ -26,26 +25,14 @@ def read_instructions(line: str) -> list[Instruction]:
     return instructions
 
 
-def char_to_int(c: str) -> int:
-    match c:
-        case "#":
-            return 1
-        case ".":
-            return 2
-        case _:
-            return 0
-
-
 def false_square(n: int) -> list[list[bool]]:
     return [[False] * n for _ in range(n)]
 
 
-AltPosition = namedtuple(
-    "AltPosition", ["board_row", "board_col", "face_row", "face_col"]
-)
+Position = namedtuple("Position", ["board_row", "board_col", "face_row", "face_col"])
 
 
-class AltBoard:
+class Board:
     def char_to_obstacle(self, c: str) -> Optional[bool]:
         match c:
             case "#":
@@ -55,10 +42,10 @@ class AltBoard:
             case _:
                 return None
 
-    def get_start_position(self) -> AltPosition:
+    def get_start_position(self) -> Position:
         cols_in_first_row = [key[1] for key in self.faces.keys() if key[0] == 0]
         board_col = min(cols_in_first_row)
-        return AltPosition(0, board_col, 0, 0)
+        return Position(0, board_col, 0, 0)
 
     def __init__(self, lines: list[str]):
         num_of_rows = len(lines)
@@ -76,58 +63,7 @@ class AltBoard:
                     ] = obstacle
 
 
-def read_board(lines):
-    def line_to_ints(line):
-        return [char_to_int(c) for c in line[:-1]]
-
-    return list(map(line_to_ints, lines))
-
-
-def row_to_min_max(row):
-    idxs = [i for i, x in enumerate(row) if x != 0]
-    return min(idxs), max(idxs)
-
-
-def cols_min_maxes(row_mins, row_maxs):
-    num_of_cols = max(row_maxs)
-    num_of_rows = len(row_mins)
-
-    col_mins = []
-    col_maxs = []
-
-    for c in range(num_of_cols):
-        col_min = min(i for i in range(num_of_rows) if row_mins[i] <= c <= row_maxs[i])
-        col_max = max(i for i in range(num_of_rows) if row_mins[i] <= c <= row_maxs[i])
-        col_mins.append(col_min)
-        col_maxs.append(col_max)
-
-    return col_mins, col_maxs
-
-
-def mins_maxs(board):
-    row_mins = []
-    row_maxs = []
-
-    for row in board:
-        min_r, max_r = row_to_min_max(row)
-        row_mins.append(min_r)
-        row_maxs.append(max_r)
-
-    col_mins, col_maxs = cols_min_maxes(row_mins, row_maxs)
-
-    return row_mins, row_maxs, col_mins, col_maxs
-
-
-@dataclass
-class Board:
-    def __init__(self, lines):
-        self.board = read_board(lines)
-        self.row_mins, self.row_maxs, self.col_mins, self.col_maxs = mins_maxs(
-            self.board
-        )
-
-
-def change_direction(direction: Direction, instruction) -> Direction:
+def change_direction(direction: Direction, instruction: DirectionChange) -> Direction:
     match (direction, instruction):
         case ("LEFT", "L") | ("RIGHT", "R"):
             return "DOWN"
@@ -139,78 +75,7 @@ def change_direction(direction: Direction, instruction) -> Direction:
             return "LEFT"
 
 
-def move_left(position, board):
-    row, col = position
-    l_col = col - 1 if col > board.row_mins[row] else board.row_maxs[row]
-    new_col = l_col if board.board[row][l_col] == 2 else col
-    return (row, new_col)
-
-
-def move_right(position, board):
-    row, col = position
-    r_col = col + 1 if col < board.row_maxs[row] else board.row_mins[row]
-    new_col = r_col if board.board[row][r_col] == 2 else col
-    return (row, new_col)
-
-
-def move_up(position, board):
-    row, col = position
-    u_row = row - 1 if row > board.col_mins[col] else board.col_maxs[col]
-    new_row = u_row if board.board[u_row][col] == 2 else row
-    return (new_row, col)
-
-
-def move_down(position, board):
-    row, col = position
-    d_row = row + 1 if row < board.col_maxs[col] else board.col_mins[col]
-    new_row = d_row if board.board[d_row][col] == 2 else row
-    return (new_row, col)
-
-
-pos_diff = {
-    "LEFT": (0, -1),
-    "RIGHT": (0, 1),
-    "UP": (-1, 0),
-    "DOWN": (1, 0),
-}
-
-
-def add_vectors(v1, v2):
-    v11, v12 = v1
-    v21, v22 = v2
-    return (v11 + v21, v12 + v22)
-
-
-def correct_position(position, board):
-    row, col = position
-
-    if row < len(board.row_mins):
-        k = board.row_mins[row]
-        n = board.row_maxs[row] - k + 1
-        col = (col - k) % n + k
-
-    if col < len(board.col_mins):
-        k = board.col_mins[col]
-        n = board.col_maxs[col] - k + 1
-        row = (row - k) % n + k
-
-    return row, col
-
-
-def move_once(position, direction: Direction, board):
-    if direction == "LEFT":
-        return move_left(position, board)
-    if direction == "RIGHT":
-        return move_right(position, board)
-    if direction == "UP":
-        return move_up(position, board)
-    if direction == "DOWN":
-        return move_down(position, board)
-
-    raise ValueError("Invalid direction")
-
-
-def alt_move_left(position: AltPosition, board: AltBoard):
+def move_left(position: Position, board: Board):
     face_row, face_col = position.face_row, position.face_col
     board_row, board_col = position.board_row, position.board_col
     new_face_col = face_col - 1 if face_col > 0 else board.face_side - 1
@@ -226,11 +91,11 @@ def alt_move_left(position: AltPosition, board: AltBoard):
         new_board_col = board_col
 
     if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
-        return position
-    return AltPosition(board_row, new_board_col, face_row, new_face_col)
+        return None
+    return Position(board_row, new_board_col, face_row, new_face_col)
 
 
-def alt_move_right(position: AltPosition, board: AltBoard):
+def move_right(position: Position, board: Board):
     face_row, face_col = position.face_row, position.face_col
     board_row, board_col = position.board_row, position.board_col
     new_face_col = face_col + 1 if face_col < board.face_side - 1 else 0
@@ -246,11 +111,11 @@ def alt_move_right(position: AltPosition, board: AltBoard):
         new_board_col = board_col
 
     if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
-        return position
-    return AltPosition(board_row, new_board_col, face_row, new_face_col)
+        return None
+    return Position(board_row, new_board_col, face_row, new_face_col)
 
 
-def alt_move_up(position: AltPosition, board: AltBoard):
+def move_up(position: Position, board: Board):
     face_row, face_col = position.face_row, position.face_col
     board_row, board_col = position.board_row, position.board_col
     new_face_row = face_row - 1 if face_row > 0 else board.face_side - 1
@@ -266,11 +131,11 @@ def alt_move_up(position: AltPosition, board: AltBoard):
         new_board_row = board_row
 
     if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
-        return position
-    return AltPosition(new_board_row, board_col, new_face_row, face_col)
+        return None
+    return Position(new_board_row, board_col, new_face_row, face_col)
 
 
-def alt_move_down(position: AltPosition, board: AltBoard):
+def move_down(position: Position, board: Board):
     face_row, face_col = position.face_row, position.face_col
     board_row, board_col = position.board_row, position.board_col
     new_face_row = face_row + 1 if face_row < board.face_side - 1 else 0
@@ -286,34 +151,27 @@ def alt_move_down(position: AltPosition, board: AltBoard):
         new_board_row = board_row
 
     if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
-        return position
-    return AltPosition(new_board_row, board_col, new_face_row, face_col)
+        return None
+    return Position(new_board_row, board_col, new_face_row, face_col)
 
 
-def alt_move_once(position, direction: Direction, board):
-    if direction == "LEFT":
-        return alt_move_left(position, board)
-    if direction == "RIGHT":
-        return alt_move_right(position, board)
-    if direction == "UP":
-        return alt_move_up(position, board)
-    if direction == "DOWN":
-        return alt_move_down(position, board)
-
-    raise ValueError("Invalid direction")
+def move_once(
+    position: Position, direction: Direction, board: Board
+) -> Optional[Position]:
+    match direction:
+        case "LEFT":
+            return move_left(position, board)
+        case "RIGHT":
+            return move_right(position, board)
+        case "UP":
+            return move_up(position, board)
+        case "DOWN":
+            return move_down(position, board)
 
 
 def move(position, direction, board, steps):
-    for _ in range(steps):
-        position = move_once(position, direction, board)
-
-    return position
-
-
-def alt_move(position: AltBoard, direction, board, steps):
-    for _ in range(steps):
-        position = alt_move_once(position, direction, board)
-
+    if steps > 0 and (new_position := move_once(position, direction, board)):
+        return move(new_position, direction, board, steps - 1)
     return position
 
 
@@ -333,19 +191,15 @@ def part1():
     with open("data/day22.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
         instructions = read_instructions(lines[-1])
-        alt_board = AltBoard(lines[:-2])
-        print("FAces:", len(alt_board.faces))
-        alt_position = alt_board.get_start_position()
         board = Board(lines[:-2])
-
-        position = 0, board.row_mins[0]
+        position = board.get_start_position()
         direction = "RIGHT"
 
         for instruction in instructions:
-            if isinstance(instruction, int):
-                position = move(position, direction, board, instruction)
-                alt_position = alt_move(alt_position, direction, alt_board, instruction)
-            else:
-                direction = change_direction(direction, instruction)
+            match instruction:
+                case int():
+                    position = move(position, direction, board, instruction)
+                case str():
+                    direction = change_direction(direction, instruction)
 
-        return final_password(alt_position, direction, alt_board.face_side)
+        return final_password(position, direction, board.face_side)
