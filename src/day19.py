@@ -1,6 +1,5 @@
 import re
 import functools
-import itertools
 import math
 
 from typing import Optional
