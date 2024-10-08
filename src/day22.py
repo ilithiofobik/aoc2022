@@ -1,6 +1,6 @@
 from typing import Union, Optional
 from math import gcd
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from enum import IntEnum
 from dataclasses import dataclass
 
@@ -48,7 +48,10 @@ class Coordinates:
     col: int
 
 
-Position = namedtuple("Position", ["board", "face"])
+@dataclass
+class Position:
+    board: Coordinates
+    face: Coordinates
 
 
 class Board:
@@ -64,7 +67,9 @@ class Board:
     def get_start_position(self) -> Position:
         cols_in_first_row = [key[1] for key in self.faces.keys() if key[0] == 0]
         board_col = min(cols_in_first_row)
-        return Position(Coordinates(0, board_col), Coordinates(0, 0))
+        board = Coordinates(0, board_col)
+        face = Coordinates(0, 0)
+        return Position(board=board, face=face)
 
     def __init__(self, lines: list[str]):
         num_of_rows = len(lines)
@@ -104,9 +109,10 @@ def move_left(position: Position, board: Board):
 
     if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
         return None
-    return Position(
-        Coordinates(board_row, new_board_col), Coordinates(face_row, new_face_col)
-    )
+
+    board = Coordinates(board_row, new_board_col)
+    face = Coordinates(face_row, new_face_col)
+    return Position(board=board, face=face)
 
 
 def move_right(position: Position, board: Board):
@@ -126,9 +132,10 @@ def move_right(position: Position, board: Board):
 
     if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
         return None
-    return Position(
-        Coordinates(board_row, new_board_col), Coordinates(face_row, new_face_col)
-    )
+
+    board = Coordinates(board_row, new_board_col)
+    face = Coordinates(face_row, new_face_col)
+    return Position(board=board, face=face)
 
 
 def move_up(position: Position, board: Board):
@@ -148,9 +155,10 @@ def move_up(position: Position, board: Board):
 
     if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
         return None
-    return Position(
-        Coordinates(new_board_row, board_col), Coordinates(new_face_row, face_col)
-    )
+
+    board = Coordinates(new_board_row, board_col)
+    face = Coordinates(new_face_row, face_col)
+    return Position(board=board, face=face)
 
 
 def move_down(position: Position, board: Board):
@@ -170,9 +178,10 @@ def move_down(position: Position, board: Board):
 
     if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
         return None
-    return Position(
-        Coordinates(new_board_row, board_col), Coordinates(new_face_row, face_col)
-    )
+
+    board = Coordinates(new_board_row, board_col)
+    face = Coordinates(new_face_row, face_col)
+    return Position(board=board, face=face)
 
 
 def move_once(
