@@ -103,36 +103,54 @@ def change_direction(direction: Direction, instruction: DirectionChange) -> Dire
 
 def move_left(position: Position, board: Board, face_change: Coordinates):
     new_face = position.face.add_modulo(face_change, board.face_side)
+    new_board = position.board
+    attrs_pairs = [("col", "row")]
 
-    if new_face.col == board.face_side - 1 and face_change.col == -1:
+    for attr1, attr2 in attrs_pairs:
         if (
-            Coordinates(position.board.row, position.board.col - 1)
-            in board.faces.keys()
+            getattr(new_face, attr1) == board.face_side - 1
+            and getattr(face_change, attr1) == -1
         ):
-            new_board_col = position.board.col - 1
-        else:
-            new_board_col = max(
-                key.col for key in board.faces.keys() if key.row == position.board.row
-            )
-    elif new_face.col == 0 and face_change.col == 1:
-        if (
-            Coordinates(position.board.row, position.board.col + 1)
-            in board.faces.keys()
-        ):
-            new_board_col = position.board.col + 1
-        else:
-            new_board_col = min(
-                key.col for key in board.faces.keys() if key.row == position.board.row
-            )
-    else:
-        new_board_col = position.board.col
+            if (
+                Coordinates(
+                    getattr(position.board, attr2), getattr(position.board, attr1) - 1
+                )
+                in board.faces.keys()
+            ):
+                setattr(new_board, attr1, getattr(position.board, attr1) - 1)
+            else:
+                setattr(
+                    new_board,
+                    attr1,
+                    max(
+                        getattr(key, attr1)
+                        for key in board.faces.keys()
+                        if getattr(key, attr2) == getattr(position.board, attr2)
+                    ),
+                )
+        elif getattr(new_face, attr1) == 0 and getattr(face_change, attr1) == 1:
+            if (
+                Coordinates(
+                    getattr(position.board, attr2), getattr(position.board, attr1) + 1
+                )
+                in board.faces.keys()
+            ):
+                setattr(new_board, attr1, getattr(position.board, attr1) + 1)
+            else:
+                setattr(
+                    new_board,
+                    attr1,
+                    min(
+                        getattr(key, attr1)
+                        for key in board.faces.keys()
+                        if getattr(key, attr2) == getattr(position.board, attr2)
+                    ),
+                )
 
-    if board.faces[Coordinates(position.board.row, new_board_col)][position.face.row][
-        new_face.col
-    ]:
+    if board.faces[new_board][new_face.row][new_face.col]:
         return None
 
-    board = Coordinates(position.board.row, new_board_col)
+    board = Coordinates(new_board.row, new_board.col)
     return Position(board=board, face=new_face)
 
 
