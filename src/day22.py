@@ -47,6 +47,15 @@ class Coordinates:
     row: int
     col: int
 
+    def __hash__(self) -> int:
+        return hash((self.row, self.col))
+
+    def __add__(self, other):
+        return Coordinates(self.row + other.row, self.col + other.col)
+
+    def add_modulo(self, other, n):
+        return Coordinates((self.row + other.row) % n, (self.col + other.col) % n)
+
 
 @dataclass
 class Position:
@@ -65,7 +74,7 @@ class Board:
                 return None
 
     def get_start_position(self) -> Position:
-        cols_in_first_row = [key[1] for key in self.faces.keys() if key[0] == 0]
+        cols_in_first_row = [key.col for key in self.faces.keys() if key.row == 0]
         board_col = min(cols_in_first_row)
         board = Coordinates(0, board_col)
         face = Coordinates(0, 0)
@@ -79,7 +88,7 @@ class Board:
         for row, line in enumerate(lines):
             for col, c in enumerate(line[:-1]):
                 if obstacle := self.char_to_obstacle(c):
-                    face = (row // self.face_side, col // self.face_side)
+                    face = Coordinates(row // self.face_side, col // self.face_side)
                     if face not in self.faces:
                         self.faces[face] = false_square(self.face_side)
                     self.faces[face][row % self.face_side][
@@ -92,50 +101,39 @@ def change_direction(direction: Direction, instruction: DirectionChange) -> Dire
     return Direction(new_direction)
 
 
-def move_left(position: Position, board: Board):
-    face_row, face_col = position.face.row, position.face.col
-    board_row, board_col = position.board.row, position.board.col
-    new_face_col = face_col - 1 if face_col > 0 else board.face_side - 1
+def move_left(position: Position, board: Board, face_change: Coordinates):
+    new_face = position.face.add_modulo(face_change, board.face_side)
 
-    if face_col == 0:
-        if (board_row, board_col - 1) in board.faces.keys():
-            new_board_col = board_col - 1
+    if new_face.col == board.face_side - 1 and face_change.col == -1:
+        if (
+            Coordinates(position.board.row, position.board.col - 1)
+            in board.faces.keys()
+        ):
+            new_board_col = position.board.col - 1
         else:
             new_board_col = max(
-                key[1] for key in board.faces.keys() if key[0] == board_row
+                key.col for key in board.faces.keys() if key.row == position.board.row
             )
-    else:
-        new_board_col = board_col
-
-    if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
-        return None
-
-    board = Coordinates(board_row, new_board_col)
-    face = Coordinates(face_row, new_face_col)
-    return Position(board=board, face=face)
-
-
-def move_right(position: Position, board: Board):
-    face_row, face_col = position.face.row, position.face.col
-    board_row, board_col = position.board.row, position.board.col
-    new_face_col = face_col + 1 if face_col < board.face_side - 1 else 0
-
-    if face_col == board.face_side - 1:
-        if (board_row, board_col + 1) in board.faces.keys():
-            new_board_col = board_col + 1
+    elif new_face.col == 0 and face_change.col == 1:
+        if (
+            Coordinates(position.board.row, position.board.col + 1)
+            in board.faces.keys()
+        ):
+            new_board_col = position.board.col + 1
         else:
             new_board_col = min(
-                key[1] for key in board.faces.keys() if key[0] == board_row
+                key.col for key in board.faces.keys() if key.row == position.board.row
             )
     else:
-        new_board_col = board_col
+        new_board_col = position.board.col
 
-    if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
+    if board.faces[Coordinates(position.board.row, new_board_col)][position.face.row][
+        new_face.col
+    ]:
         return None
 
-    board = Coordinates(board_row, new_board_col)
-    face = Coordinates(face_row, new_face_col)
-    return Position(board=board, face=face)
+    board = Coordinates(position.board.row, new_board_col)
+    return Position(board=board, face=new_face)
 
 
 def move_up(position: Position, board: Board):
@@ -144,16 +142,16 @@ def move_up(position: Position, board: Board):
     new_face_row = face_row - 1 if face_row > 0 else board.face_side - 1
 
     if face_row == 0:
-        if (board_row - 1, board_col) in board.faces.keys():
+        if Coordinates(board_row - 1, board_col) in board.faces.keys():
             new_board_row = board_row - 1
         else:
             new_board_row = max(
-                key[0] for key in board.faces.keys() if key[1] == board_col
+                key.row for key in board.faces.keys() if key.col == board_col
             )
     else:
         new_board_row = board_row
 
-    if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
+    if board.faces[Coordinates(new_board_row, board_col)][new_face_row][face_col]:
         return None
 
     board = Coordinates(new_board_row, board_col)
@@ -167,16 +165,16 @@ def move_down(position: Position, board: Board):
     new_face_row = face_row + 1 if face_row < board.face_side - 1 else 0
 
     if face_row == board.face_side - 1:
-        if (board_row + 1, board_col) in board.faces.keys():
+        if Coordinates(board_row + 1, board_col) in board.faces.keys():
             new_board_row = board_row + 1
         else:
             new_board_row = min(
-                key[0] for key in board.faces.keys() if key[1] == board_col
+                key.row for key in board.faces.keys() if key.col == board_col
             )
     else:
         new_board_row = board_row
 
-    if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
+    if board.faces[Coordinates(new_board_row, board_col)][new_face_row][face_col]:
         return None
 
     board = Coordinates(new_board_row, board_col)
@@ -184,14 +182,28 @@ def move_down(position: Position, board: Board):
     return Position(board=board, face=face)
 
 
+def direction_to_move(direction: Direction) -> Coordinates:
+    match direction:
+        case Direction.LEFT:
+            return Coordinates(0, -1)
+        case Direction.RIGHT:
+            return Coordinates(0, 1)
+        case Direction.UP:
+            return Coordinates(-1, 0)
+        case Direction.DOWN:
+            return Coordinates(1, 0)
+
+
 def move_once(
     position: Position, direction: Direction, board: Board
 ) -> Optional[Position]:
+    face_change = direction_to_move(direction)
+
     match direction:
         case Direction.LEFT:
-            return move_left(position, board)
+            return move_left(position, board, face_change)
         case Direction.RIGHT:
-            return move_right(position, board)
+            return move_left(position, board, face_change)
         case Direction.UP:
             return move_up(position, board)
         case Direction.DOWN:
