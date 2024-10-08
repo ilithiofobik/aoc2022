@@ -1,9 +1,21 @@
-from typing import Literal, Union, Optional
+from typing import Union, Optional
 from math import gcd
 from collections import namedtuple, defaultdict
+from enum import IntEnum
 
-DirectionChange = Literal["L", "R"]
-Direction = Literal["LEFT", "RIGHT", "UP", "DOWN"]
+
+class DirectionChange(IntEnum):
+    L = 3
+    R = 1
+
+
+class Direction(IntEnum):
+    RIGHT = 0
+    DOWN = 1
+    LEFT = 2
+    UP = 3
+
+
 Instruction = Union[int, DirectionChange]
 
 
@@ -18,7 +30,7 @@ def read_instructions(line: str) -> list[Instruction]:
             if curr:
                 instructions.append(curr)
                 curr = 0
-            instructions.append(c)
+            instructions.append(DirectionChange.L if c == "L" else DirectionChange.R)
 
     if curr:
         instructions.append(curr)
@@ -64,15 +76,8 @@ class Board:
 
 
 def change_direction(direction: Direction, instruction: DirectionChange) -> Direction:
-    match (direction, instruction):
-        case ("LEFT", "L") | ("RIGHT", "R"):
-            return "DOWN"
-        case ("LEFT", "R") | ("RIGHT", "L"):
-            return "UP"
-        case ("UP", "R") | ("DOWN", "L"):
-            return "RIGHT"
-        case ("DOWN", "R") | ("UP", "L"):
-            return "LEFT"
+    new_direction = (direction.value + instruction.value) % 4
+    return Direction(new_direction)
 
 
 def move_left(position: Position, board: Board):
@@ -159,13 +164,13 @@ def move_once(
     position: Position, direction: Direction, board: Board
 ) -> Optional[Position]:
     match direction:
-        case "LEFT":
+        case Direction.LEFT:
             return move_left(position, board)
-        case "RIGHT":
+        case Direction.RIGHT:
             return move_right(position, board)
-        case "UP":
+        case Direction.UP:
             return move_up(position, board)
-        case "DOWN":
+        case Direction.DOWN:
             return move_down(position, board)
 
 
@@ -175,16 +180,10 @@ def move(position, direction, board, steps):
     return position
 
 
-def final_password(position, direction, face_side):
-    facing_point = {
-        "RIGHT": 0,
-        "DOWN": 1,
-        "LEFT": 2,
-        "UP": 3,
-    }
+def final_password(position, direction: Direction, face_side):
     row = position.board_row * face_side + position.face_row
     col = position.board_col * face_side + position.face_col
-    return 1000 * (row + 1) + 4 * (col + 1) + facing_point[direction]
+    return 1000 * (row + 1) + 4 * (col + 1) + direction.value
 
 
 def part1():
@@ -193,13 +192,13 @@ def part1():
         instructions = read_instructions(lines[-1])
         board = Board(lines[:-2])
         position = board.get_start_position()
-        direction = "RIGHT"
+        direction = Direction.RIGHT
 
         for instruction in instructions:
             match instruction:
+                case DirectionChange():
+                    direction = change_direction(direction, instruction)
                 case int():
                     position = move(position, direction, board, instruction)
-                case str():
-                    direction = change_direction(direction, instruction)
 
         return final_password(position, direction, board.face_side)
