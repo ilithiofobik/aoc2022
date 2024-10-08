@@ -48,7 +48,7 @@ class Coordinates:
     col: int
 
 
-Position = namedtuple("Position", ["board_row", "board_col", "face"])
+Position = namedtuple("Position", ["board", "face"])
 
 
 class Board:
@@ -64,7 +64,7 @@ class Board:
     def get_start_position(self) -> Position:
         cols_in_first_row = [key[1] for key in self.faces.keys() if key[0] == 0]
         board_col = min(cols_in_first_row)
-        return Position(0, board_col, Coordinates(0, 0))
+        return Position(Coordinates(0, board_col), Coordinates(0, 0))
 
     def __init__(self, lines: list[str]):
         num_of_rows = len(lines)
@@ -89,7 +89,7 @@ def change_direction(direction: Direction, instruction: DirectionChange) -> Dire
 
 def move_left(position: Position, board: Board):
     face_row, face_col = position.face.row, position.face.col
-    board_row, board_col = position.board_row, position.board_col
+    board_row, board_col = position.board.row, position.board.col
     new_face_col = face_col - 1 if face_col > 0 else board.face_side - 1
 
     if face_col == 0:
@@ -104,12 +104,14 @@ def move_left(position: Position, board: Board):
 
     if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
         return None
-    return Position(board_row, new_board_col, Coordinates(face_row, new_face_col))
+    return Position(
+        Coordinates(board_row, new_board_col), Coordinates(face_row, new_face_col)
+    )
 
 
 def move_right(position: Position, board: Board):
     face_row, face_col = position.face.row, position.face.col
-    board_row, board_col = position.board_row, position.board_col
+    board_row, board_col = position.board.row, position.board.col
     new_face_col = face_col + 1 if face_col < board.face_side - 1 else 0
 
     if face_col == board.face_side - 1:
@@ -124,12 +126,14 @@ def move_right(position: Position, board: Board):
 
     if board.faces[(board_row, new_board_col)][face_row][new_face_col]:
         return None
-    return Position(board_row, new_board_col, Coordinates(face_row, new_face_col))
+    return Position(
+        Coordinates(board_row, new_board_col), Coordinates(face_row, new_face_col)
+    )
 
 
 def move_up(position: Position, board: Board):
     face_row, face_col = position.face.row, position.face.col
-    board_row, board_col = position.board_row, position.board_col
+    board_row, board_col = position.board.row, position.board.col
     new_face_row = face_row - 1 if face_row > 0 else board.face_side - 1
 
     if face_row == 0:
@@ -144,12 +148,14 @@ def move_up(position: Position, board: Board):
 
     if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
         return None
-    return Position(new_board_row, board_col, Coordinates(new_face_row, face_col))
+    return Position(
+        Coordinates(new_board_row, board_col), Coordinates(new_face_row, face_col)
+    )
 
 
 def move_down(position: Position, board: Board):
     face_row, face_col = position.face.row, position.face.col
-    board_row, board_col = position.board_row, position.board_col
+    board_row, board_col = position.board.row, position.board.col
     new_face_row = face_row + 1 if face_row < board.face_side - 1 else 0
 
     if face_row == board.face_side - 1:
@@ -164,7 +170,9 @@ def move_down(position: Position, board: Board):
 
     if board.faces[(new_board_row, board_col)][new_face_row][face_col]:
         return None
-    return Position(new_board_row, board_col, Coordinates(new_face_row, face_col))
+    return Position(
+        Coordinates(new_board_row, board_col), Coordinates(new_face_row, face_col)
+    )
 
 
 def move_once(
@@ -188,8 +196,8 @@ def move(position, direction, board, steps):
 
 
 def final_password(position: Position, direction: Direction, face_side):
-    row = position.board_row * face_side + position.face.row
-    col = position.board_col * face_side + position.face.col
+    row = position.board.row * face_side + position.face.row
+    col = position.board.col * face_side + position.face.col
     return 1000 * (row + 1) + 4 * (col + 1) + direction.value
 
 
