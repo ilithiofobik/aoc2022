@@ -1,9 +1,10 @@
-from typing import Union, Optional
-from math import gcd
-from collections import defaultdict
-from enum import IntEnum
-from dataclasses import dataclass
 import copy
+from collections import defaultdict
+from dataclasses import dataclass
+from enum import IntEnum
+from math import gcd
+from typing import Optional
+
 
 class DirectionChange(IntEnum):
     L = 3
@@ -17,7 +18,7 @@ class Direction(IntEnum):
     UP = 3
 
 
-Instruction = Union[int, DirectionChange]
+Instruction = int | DirectionChange
 
 
 def read_instructions(line: str) -> list[Instruction]:
@@ -54,7 +55,6 @@ class Coordinates:
         return Coordinates(self.row + other.row, self.col + other.col)
 
 
-
 @dataclass
 class Position:
     outer: Coordinates
@@ -81,10 +81,10 @@ class Board:
         board = Coordinates(0, board_col)
         face = Coordinates(0, 0)
         return Position(outer=board, inner=face)
-    
+
     def keys_with_row(self, row: int) -> list[Coordinates]:
         return [key for key in self.faces.keys() if key.row == row]
-    
+
     def keys_with_col(self, col: int) -> list[Coordinates]:
         return [key for key in self.faces.keys() if key.col == col]
 
@@ -99,9 +99,9 @@ class Board:
                     face = Coordinates(row // self.face_side, col // self.face_side)
                     if face not in self.faces:
                         self.faces[face] = false_square(self.face_side)
-                    self.faces[face][row % self.face_side][
-                        col % self.face_side
-                    ] = obstacle
+                    self.faces[face][row % self.face_side][col % self.face_side] = (
+                        obstacle
+                    )
 
 
 def change_direction(direction: Direction, instruction: DirectionChange) -> Direction:
@@ -120,31 +120,40 @@ def direction_to_move(direction: Direction) -> Coordinates:
         case Direction.DOWN:
             return Coordinates(1, 0)
 
+
 def correct_position_modulo(position: Position, board_info: Board) -> Position:
     face = position.inner
     outer = position.outer
-    
+
     if face.row < 0:
         face.row = board_info.face_side - 1
-        outer.row = outer.row - 1 if Coordinates(outer.row - 1, outer.col) in board_info.faces.keys() else max(
-                key.row for key in board_info.faces.keys() if key.col == outer.col
-            )
+        outer.row = (
+            outer.row - 1
+            if Coordinates(outer.row - 1, outer.col) in board_info.faces.keys()
+            else max(key.row for key in board_info.faces.keys() if key.col == outer.col)
+        )
     elif face.row >= board_info.face_side:
         face.row = 0
-        outer.row = outer.row + 1 if Coordinates(outer.row + 1, outer.col) in board_info.faces.keys() else min(
-                key.row for key in board_info.faces.keys() if key.col == outer.col
-            )
+        outer.row = (
+            outer.row + 1
+            if Coordinates(outer.row + 1, outer.col) in board_info.faces.keys()
+            else min(key.row for key in board_info.faces.keys() if key.col == outer.col)
+        )
     elif face.col < 0:
         face.col = board_info.face_side - 1
-        outer.col = outer.col - 1 if Coordinates(outer.row, outer.col - 1) in board_info.faces.keys() else max(
-                key.col for key in board_info.faces.keys() if key.row == outer.row
-            )
+        outer.col = (
+            outer.col - 1
+            if Coordinates(outer.row, outer.col - 1) in board_info.faces.keys()
+            else max(key.col for key in board_info.faces.keys() if key.row == outer.row)
+        )
     elif face.col >= board_info.face_side:
         face.col = 0
-        outer.col = outer.col + 1 if Coordinates(outer.row, outer.col + 1) in board_info.faces.keys() else min(
-                key.col for key in board_info.faces.keys() if key.row == outer.row
-            )
-        
+        outer.col = (
+            outer.col + 1
+            if Coordinates(outer.row, outer.col + 1) in board_info.faces.keys()
+            else min(key.col for key in board_info.faces.keys() if key.row == outer.row)
+        )
+
     return Position(outer=outer, inner=face)
 
 
@@ -154,16 +163,17 @@ def move_once(
     face_change = direction_to_move(direction)
     old_position = copy.deepcopy(position)
     new_position = correct_position(old_position.add_inner(face_change), board)
-    
+
     if board.faces[new_position.outer][new_position.inner.row][new_position.inner.col]:
         return None
-    
+
     return new_position
 
 
-
 def move(position, direction, board, steps, correct_position):
-    if steps > 0 and (new_position := move_once(position, direction, board, correct_position)):
+    if steps > 0 and (
+        new_position := move_once(position, direction, board, correct_position)
+    ):
         return move(new_position, direction, board, steps - 1, correct_position_modulo)
     return position
 
@@ -187,6 +197,8 @@ def part1():
                 case DirectionChange():
                     direction = change_direction(direction, instruction)
                 case int():
-                    position = move(position, direction, board, instruction, correct_position_modulo)
+                    position = move(
+                        position, direction, board, instruction, correct_position_modulo
+                    )
 
         return final_password(position, direction, board.face_side)
