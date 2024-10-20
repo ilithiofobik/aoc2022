@@ -1,4 +1,5 @@
 import copy
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import IntEnum
@@ -157,24 +158,30 @@ def correct_position_modulo(position: Position, board_info: Board) -> Position:
     return Position(outer=outer, inner=face)
 
 
+class PositionCorrector(ABC):
+    @abstractmethod
+    def correct_position(self, position: Position) -> Position: ...
+
+
 def move_once(
-    position: Position, direction: Direction, board: Board, correct_position
+    position: Position, direction: Direction, corrector: PositionCorrector
 ) -> Optional[Position]:
     face_change = direction_to_move(direction)
     old_position = copy.deepcopy(position)
-    new_position = correct_position(old_position.add_inner(face_change), board)
+    new_position = corrector.correct_position(old_position.add_inner(face_change))
 
-    if board.faces[new_position.outer][new_position.inner.row][new_position.inner.col]:
+    if corrector.board_info.faces[new_position.outer][new_position.inner.row][
+        new_position.inner.col
+    ]:
         return None
 
     return new_position
 
 
-def move(position, direction, board, steps, correct_position):
-    if steps > 0 and (
-        new_position := move_once(position, direction, board, correct_position)
-    ):
-        return move(new_position, direction, board, steps - 1, correct_position_modulo)
+def move(position, direction, steps, corrector):
+    while steps > 0 and (new_position := move_once(position, direction, corrector)):
+        steps -= 1
+        position = new_position
     return position
 
 
@@ -184,6 +191,83 @@ def final_password(position: Position, direction: Direction, face_side):
     return 1000 * (row + 1) + 4 * (col + 1) + direction.value
 
 
+def position_to_side(position: Position, n: int) -> Optional[Direction]:
+    if position.inner.row < 0:
+        return Direction.UP
+    if position.inner.row >= n:
+        return Direction.DOWN
+    if position.inner.col < 0:
+        return Direction.LEFT
+    if position.inner.col >= n:
+        return Direction.RIGHT
+
+    return None
+
+
+class FallCorrector:
+    def __init__(self, board_info: Board):
+        self.n: int = board_info.face_side
+        self.board_info = board_info
+        self.neighbors: dict[(Coordinates, Direction), (Coordinates, Direction)] = {}
+        keys = board_info.faces.keys()
+
+        for face in keys:
+            up_row = (
+                face.row - 1
+                if Coordinates(face.row - 1, face.col) in keys
+                else max(key.row for key in keys if face.col == key.col)
+            )
+            down_row = (
+                face.row + 1
+                if Coordinates(face.row + 1, face.col) in keys
+                else min(key.row for key in keys if face.col == key.col)
+            )
+            left_col = (
+                face.col - 1
+                if Coordinates(face.row, face.col - 1) in keys
+                else max(key.col for key in keys if face.row == key.row)
+            )
+            right_col = (
+                face.col + 1
+                if Coordinates(face.row, face.col + 1) in keys
+                else min(key.col for key in keys if face.row == key.row)
+            )
+            self.neighbors[(face, Direction.LEFT)] = (
+                Coordinates(face.row, left_col),
+                Direction.RIGHT,
+            )
+            self.neighbors[(face, Direction.RIGHT)] = (
+                Coordinates(face.row, right_col),
+                Direction.LEFT,
+            )
+            self.neighbors[(face, Direction.UP)] = (
+                Coordinates(up_row, face.col),
+                Direction.DOWN,
+            )
+            self.neighbors[(face, Direction.DOWN)] = (
+                Coordinates(down_row, face.col),
+                Direction.UP,
+            )
+
+    def correct_position(self, position: Position) -> Position:
+        face = position.inner
+        direction = position_to_side(position, self.n)
+
+        if face.row < 0:
+            face.row = self.n - 1
+        elif face.row >= self.n:
+            face.row = 0
+        elif face.col < 0:
+            face.col = self.n - 1
+        elif face.col >= self.n:
+            face.col = 0
+
+        if direction is not None:
+            position.outer = self.neighbors[(position.outer, direction)][0]
+
+        return Position(outer=position.outer, inner=face)
+
+
 def part1():
     with open("data/day22.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
@@ -191,14 +275,13 @@ def part1():
         board = Board(lines[:-2])
         position = board.get_start_position()
         direction = Direction.RIGHT
+        corrector = FallCorrector(board)
 
         for instruction in instructions:
             match instruction:
                 case DirectionChange():
                     direction = change_direction(direction, instruction)
                 case int():
-                    position = move(
-                        position, direction, board, instruction, correct_position_modulo
-                    )
+                    position = move(position, direction, instruction, corrector)
 
         return final_password(position, direction, board.face_side)
