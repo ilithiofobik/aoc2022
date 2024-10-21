@@ -1,4 +1,3 @@
-import copy
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
@@ -122,67 +121,35 @@ def direction_to_move(direction: Direction) -> Coordinates:
             return Coordinates(1, 0)
 
 
-def correct_position_modulo(position: Position, board_info: Board) -> Position:
-    face = position.inner
-    outer = position.outer
-
-    if face.row < 0:
-        face.row = board_info.face_side - 1
-        outer.row = (
-            outer.row - 1
-            if Coordinates(outer.row - 1, outer.col) in board_info.faces.keys()
-            else max(key.row for key in board_info.faces.keys() if key.col == outer.col)
-        )
-    elif face.row >= board_info.face_side:
-        face.row = 0
-        outer.row = (
-            outer.row + 1
-            if Coordinates(outer.row + 1, outer.col) in board_info.faces.keys()
-            else min(key.row for key in board_info.faces.keys() if key.col == outer.col)
-        )
-    elif face.col < 0:
-        face.col = board_info.face_side - 1
-        outer.col = (
-            outer.col - 1
-            if Coordinates(outer.row, outer.col - 1) in board_info.faces.keys()
-            else max(key.col for key in board_info.faces.keys() if key.row == outer.row)
-        )
-    elif face.col >= board_info.face_side:
-        face.col = 0
-        outer.col = (
-            outer.col + 1
-            if Coordinates(outer.row, outer.col + 1) in board_info.faces.keys()
-            else min(key.col for key in board_info.faces.keys() if key.row == outer.row)
-        )
-
-    return Position(outer=outer, inner=face)
-
-
 class PositionCorrector(ABC):
     @abstractmethod
-    def correct_position(self, position: Position) -> Position: ...
+    def correct_position(self, position: Position) -> tuple[Position, Direction]: ...
+
+    @abstractmethod
+    def is_position_blocked(self, position: Position) -> bool: ...
 
 
 def move_once(
     position: Position, direction: Direction, corrector: PositionCorrector
 ) -> Optional[Position]:
     face_change = direction_to_move(direction)
-    old_position = copy.deepcopy(position)
-    new_position = corrector.correct_position(old_position.add_inner(face_change))
+    new_position, new_direction = corrector.correct_position(
+        position.add_inner(face_change), direction
+    )
 
-    if corrector.board_info.faces[new_position.outer][new_position.inner.row][
-        new_position.inner.col
-    ]:
+    if corrector.is_position_blocked(new_position):
         return None
 
-    return new_position
+    return new_position, new_direction
 
 
 def move(position, direction, steps, corrector):
-    while steps > 0 and (new_position := move_once(position, direction, corrector)):
+    while steps > 0 and (new_data := move_once(position, direction, corrector)):
         steps -= 1
+        (new_position, new_direction) = new_data
         position = new_position
-    return position
+        direction = new_direction
+    return position, direction
 
 
 def final_password(position: Position, direction: Direction, face_side):
@@ -204,10 +171,26 @@ def position_to_side(position: Position, n: int) -> Optional[Direction]:
     return None
 
 
+def calculate_new_inner_position(
+    position: Position, old_side: Direction, new_side: Direction, n: int
+) -> Coordinates:
+    match old_side, new_side:
+        case Direction.LEFT, Direction.RIGHT:
+            return Coordinates(position.inner.row, n - 1)
+        case Direction.RIGHT, Direction.LEFT:
+            return Coordinates(position.inner.row, 0)
+        case Direction.UP, Direction.DOWN:
+            return Coordinates(n - 1, position.inner.col)
+        case Direction.DOWN, Direction.UP:
+            return Coordinates(0, position.inner.col)
+        case a, b:
+            raise ValueError(f"Invalid sides: {a}, {b}")
+
+
 class FallCorrector:
     def __init__(self, board_info: Board):
         self.n: int = board_info.face_side
-        self.board_info = board_info
+        self._board_info = board_info
         self.neighbors: dict[(Coordinates, Direction), (Coordinates, Direction)] = {}
         keys = board_info.faces.keys()
 
@@ -249,23 +232,22 @@ class FallCorrector:
                 Direction.UP,
             )
 
-    def correct_position(self, position: Position) -> Position:
-        face = position.inner
-        direction = position_to_side(position, self.n)
+    def is_position_blocked(self, pos: Position) -> bool:
+        return self._board_info.faces[pos.outer][pos.inner.row][pos.inner.col]
 
-        if face.row < 0:
-            face.row = self.n - 1
-        elif face.row >= self.n:
-            face.row = 0
-        elif face.col < 0:
-            face.col = self.n - 1
-        elif face.col >= self.n:
-            face.col = 0
+    def correct_position(
+        self, position: Position, direction: Direction
+    ) -> tuple[Position, Direction]:
+        old_side = position_to_side(position, self.n)
 
-        if direction is not None:
-            position.outer = self.neighbors[(position.outer, direction)][0]
+        if old_side is not None:
+            new_outer, new_side = self.neighbors[(position.outer, old_side)]
+            new_inner = calculate_new_inner_position(
+                position, old_side, new_side, self.n
+            )
+            return Position(outer=new_outer, inner=new_inner), direction
 
-        return Position(outer=position.outer, inner=face)
+        return position, direction
 
 
 def part1():
@@ -282,6 +264,170 @@ def part1():
                 case DirectionChange():
                     direction = change_direction(direction, instruction)
                 case int():
-                    position = move(position, direction, instruction, corrector)
+                    position, direction = move(
+                        position, direction, instruction, corrector
+                    )
+
+        return final_password(position, direction, board.face_side)
+
+
+class CubeCorrector:
+    def __init__(self, board_info: Board):
+        self.n: int = board_info.face_side
+        self._board_info = board_info
+
+    def is_position_blocked(self, pos: Position) -> bool:
+        return self._board_info.faces[pos.outer][pos.inner.row][pos.inner.col]
+
+    def correct_position(
+        self, position: Position, direction: Direction
+    ) -> tuple[Position, Direction]:
+        old_side = position_to_side(position, self.n)
+
+        if old_side is not None:
+            match position.outer, old_side:
+                case Coordinates(0, 1), Direction.RIGHT:
+                    return Position(
+                        outer=Coordinates(0, 2),
+                        inner=Coordinates(position.inner.row, 0),
+                    ), Direction.RIGHT
+                case Coordinates(0, 2), Direction.LEFT:
+                    return Position(
+                        outer=Coordinates(0, 1),
+                        inner=Coordinates(position.inner.row, self.n - 1),
+                    ), Direction.LEFT
+                case Coordinates(0, 1), Direction.DOWN:
+                    return Position(
+                        outer=Coordinates(1, 1),
+                        inner=Coordinates(0, position.inner.col),
+                    ), Direction.DOWN
+                case Coordinates(1, 1), Direction.UP:
+                    return Position(
+                        outer=Coordinates(0, 1),
+                        inner=Coordinates(self.n - 1, position.inner.col),
+                    ), Direction.UP
+                case Coordinates(0, 1), Direction.LEFT:
+                    return Position(
+                        outer=Coordinates(2, 0),
+                        inner=Coordinates(self.n - 1 - position.inner.row, 0),
+                    ), Direction.RIGHT
+                case Coordinates(2, 0), Direction.LEFT:
+                    return Position(
+                        outer=Coordinates(0, 1),
+                        inner=Coordinates(self.n - 1 - position.inner.row, 0),
+                    ), Direction.RIGHT
+                case Coordinates(0, 1), Direction.UP:
+                    return Position(
+                        outer=Coordinates(3, 0),
+                        inner=Coordinates(position.inner.col, 0),
+                    ), Direction.RIGHT
+                case Coordinates(3, 0), Direction.LEFT:
+                    return Position(
+                        outer=Coordinates(0, 1),
+                        inner=Coordinates(0, position.inner.row),
+                    ), Direction.DOWN
+                case Coordinates(0, 2), Direction.DOWN:
+                    return Position(
+                        outer=Coordinates(1, 1),
+                        inner=Coordinates(position.inner.col, self.n - 1),
+                    ), Direction.LEFT
+                case Coordinates(1, 1), Direction.RIGHT:
+                    return Position(
+                        outer=Coordinates(0, 2),
+                        inner=Coordinates(self.n - 1, position.inner.row),
+                    ), Direction.UP
+                case Coordinates(0, 2), Direction.RIGHT:
+                    return Position(
+                        outer=Coordinates(2, 1),
+                        inner=Coordinates(self.n - 1 - position.inner.row, self.n - 1),
+                    ), Direction.LEFT
+                case Coordinates(2, 1), Direction.RIGHT:
+                    return Position(
+                        outer=Coordinates(0, 2),
+                        inner=Coordinates(self.n - 1 - position.inner.row, self.n - 1),
+                    ), Direction.LEFT
+                case Coordinates(0, 2), Direction.UP:
+                    return Position(
+                        outer=Coordinates(3, 0),
+                        inner=Coordinates(self.n - 1, position.inner.col),
+                    ), Direction.UP
+                case Coordinates(3, 0), Direction.DOWN:
+                    return Position(
+                        outer=Coordinates(0, 2),
+                        inner=Coordinates(0, position.inner.col),
+                    ), Direction.DOWN
+                case Coordinates(1, 1), Direction.DOWN:
+                    return Position(
+                        outer=Coordinates(2, 1),
+                        inner=Coordinates(0, position.inner.col),
+                    ), Direction.DOWN
+                case Coordinates(2, 1), Direction.UP:
+                    return Position(
+                        outer=Coordinates(1, 1),
+                        inner=Coordinates(self.n - 1, position.inner.col),
+                    ), Direction.UP
+                case Coordinates(1, 1), Direction.LEFT:
+                    return Position(
+                        outer=Coordinates(2, 0),
+                        inner=Coordinates(0, position.inner.row),
+                    ), Direction.DOWN
+                case Coordinates(2, 0), Direction.UP:
+                    return Position(
+                        outer=Coordinates(1, 1),
+                        inner=Coordinates(position.inner.col, 0),
+                    ), Direction.RIGHT
+                case Coordinates(2, 1), Direction.DOWN:
+                    return Position(
+                        outer=Coordinates(3, 0),
+                        inner=Coordinates(position.inner.col, self.n - 1),
+                    ), Direction.LEFT
+                case Coordinates(3, 0), Direction.RIGHT:
+                    return Position(
+                        outer=Coordinates(2, 1),
+                        inner=Coordinates(self.n - 1, position.inner.row),
+                    ), Direction.UP
+                case Coordinates(2, 1), Direction.LEFT:
+                    return Position(
+                        outer=Coordinates(2, 0),
+                        inner=Coordinates(position.inner.row, self.n - 1),
+                    ), Direction.LEFT
+                case Coordinates(2, 0), Direction.RIGHT:
+                    return Position(
+                        outer=Coordinates(2, 1),
+                        inner=Coordinates(position.inner.row, 0),
+                    ), Direction.RIGHT
+                case Coordinates(2, 0), Direction.DOWN:
+                    return Position(
+                        outer=Coordinates(3, 0),
+                        inner=Coordinates(0, position.inner.col),
+                    ), Direction.DOWN
+                case Coordinates(3, 0), Direction.UP:
+                    return Position(
+                        outer=Coordinates(2, 0),
+                        inner=Coordinates(self.n - 1, position.inner.col),
+                    ), Direction.UP
+                case a, b:
+                    raise ValueError(f"Invalid outer: {a}, {b}")
+
+        return position, direction
+
+
+def part2():
+    with open("data/day22.txt", "r", encoding="utf-8") as data:
+        lines = data.readlines()
+        instructions = read_instructions(lines[-1])
+        board = Board(lines[:-2])
+        position = board.get_start_position()
+        direction = Direction.RIGHT
+        corrector = CubeCorrector(board)
+
+        for instruction in instructions:
+            match instruction:
+                case DirectionChange():
+                    direction = change_direction(direction, instruction)
+                case int():
+                    position, direction = move(
+                        position, direction, instruction, corrector
+                    )
 
         return final_password(position, direction, board.face_side)
