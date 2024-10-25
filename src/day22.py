@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import IntEnum
 from math import gcd
-from typing import Optional
+from typing import Generator, Optional
 
 
 class DirectionChange(IntEnum):
@@ -16,6 +16,9 @@ class Direction(IntEnum):
     DOWN = 1
     LEFT = 2
     UP = 3
+
+    def reverse(self) -> "Direction":
+        return Direction((self.value + 2) % 4)
 
 
 Instruction = int | DirectionChange
@@ -87,14 +90,11 @@ class Board:
             case _:
                 return None
 
-    def is_position_blocked(self, pos: Position) -> bool:
-        return self.faces[pos.outer][pos.inner.row][pos.inner.col]
+    def cols_with_given_row(self, row: int) -> Generator[Coordinates, None, None]:
+        return (key.col for key in self.faces.keys() if key.row == row)
 
-    def cols_with_given_row(self, row: int) -> list[Coordinates]:
-        return [key.col for key in self.faces.keys() if key.row == row]
-
-    def rows_with_given_col(self, col: int) -> list[Coordinates]:
-        return [key.row for key in self.faces.keys() if key.col == col]
+    def rows_with_given_col(self, col: int) -> Generator[Coordinates, None, None]:
+        return (key.row for key in self.faces.keys() if key.col == col)
 
     def get_start_position(self) -> Position:
         board_col = min(self.cols_with_given_row(0))
@@ -174,26 +174,10 @@ def position_to_side(position: Position, n: int) -> Optional[Direction]:
     return None
 
 
-def calculate_new_inner_position(
-    position: Position, old_side: Direction, new_side: Direction, n: int
-) -> Coordinates:
-    match old_side, new_side:
-        case Direction.LEFT, Direction.RIGHT:
-            return Coordinates(position.inner.row, n - 1)
-        case Direction.RIGHT, Direction.LEFT:
-            return Coordinates(position.inner.row, 0)
-        case Direction.UP, Direction.DOWN:
-            return Coordinates(n - 1, position.inner.col)
-        case Direction.DOWN, Direction.UP:
-            return Coordinates(0, position.inner.col)
-        case a, b:
-            raise ValueError(f"Invalid sides: {a}, {b}")
-
-
 class FallCorrector(PositionCorrector):
     def __init__(self, board_info: Board):
         super().__init__(board_info)
-        self.neighbors: dict[(Coordinates, Direction), (Coordinates, Direction)] = {}
+        self.neighbors: dict[(Coordinates, Direction), Coordinates] = {}
         keys = board_info.faces.keys()
 
         for face in keys:
@@ -207,32 +191,34 @@ class FallCorrector(PositionCorrector):
                 if Coordinates(face.row + 1, face.col) in keys
                 else min(board_info.rows_with_given_col(face.col))
             )
-            left_col = (
-                face.col - 1
-                if Coordinates(face.row, face.col - 1) in keys
-                else max(board_info.cols_with_given_row(face.row))
-            )
             right_col = (
                 face.col + 1
                 if Coordinates(face.row, face.col + 1) in keys
                 else min(board_info.cols_with_given_row(face.row))
             )
-            self.neighbors[(face, Direction.LEFT)] = (
-                Coordinates(face.row, left_col),
-                Direction.RIGHT,
+            left_col = (
+                face.col - 1
+                if Coordinates(face.row, face.col - 1) in keys
+                else max(board_info.cols_with_given_row(face.row))
             )
-            self.neighbors[(face, Direction.RIGHT)] = (
-                Coordinates(face.row, right_col),
-                Direction.LEFT,
-            )
-            self.neighbors[(face, Direction.UP)] = (
-                Coordinates(up_row, face.col),
-                Direction.DOWN,
-            )
-            self.neighbors[(face, Direction.DOWN)] = (
-                Coordinates(down_row, face.col),
-                Direction.UP,
-            )
+            self.neighbors[(face, Direction.LEFT)] = Coordinates(face.row, left_col)
+            self.neighbors[(face, Direction.RIGHT)] = Coordinates(face.row, right_col)
+            self.neighbors[(face, Direction.UP)] = Coordinates(up_row, face.col)
+            self.neighbors[(face, Direction.DOWN)] = Coordinates(down_row, face.col)
+
+    def _calculate_new_inner_position(
+        self, position: Position, old_side: Direction
+    ) -> Coordinates:
+        new_side = old_side.reverse()
+        match old_side, new_side:
+            case Direction.LEFT, Direction.RIGHT:
+                return Coordinates(position.inner.row, self.n - 1)
+            case Direction.RIGHT, Direction.LEFT:
+                return Coordinates(position.inner.row, 0)
+            case Direction.UP, Direction.DOWN:
+                return Coordinates(self.n - 1, position.inner.col)
+            case Direction.DOWN, Direction.UP:
+                return Coordinates(0, position.inner.col)
 
     def correct_position(
         self, position: Position, direction: Direction
@@ -240,10 +226,8 @@ class FallCorrector(PositionCorrector):
         old_side = position_to_side(position, self.n)
 
         if old_side is not None:
-            new_outer, new_side = self.neighbors[(position.outer, old_side)]
-            new_inner = calculate_new_inner_position(
-                position, old_side, new_side, self.n
-            )
+            new_outer = self.neighbors[(position.outer, old_side)]
+            new_inner = self._calculate_new_inner_position(position, old_side)
             return Position(outer=new_outer, inner=new_inner), direction
 
         return position, direction
@@ -403,10 +387,10 @@ def general_solution(
 
     for instruction in instructions:
         match instruction:
-            case DirectionChange():
-                direction = change_direction(direction, instruction)
-            case int():
-                position, direction = move(instruction, position, direction, corrector)
+            case DirectionChange() as change:
+                direction = change_direction(direction, change)
+            case int() as steps:
+                position, direction = move(steps, position, direction, corrector)
 
     return final_password(position, direction, board.face_side)
 
