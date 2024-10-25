@@ -121,13 +121,17 @@ def direction_to_move(direction: Direction) -> Coordinates:
 
 
 class PositionCorrector(ABC):
+    def __init__(self, board_info: Board):
+        self._board_info: Board = board_info
+        self.n: int = board_info.face_side
+
+    def is_position_blocked(self, pos: Position) -> bool:
+        return self._board_info.faces[pos.outer][pos.inner.row][pos.inner.col]
+
     @abstractmethod
     def correct_position(
         self, position: Position, direction: Direction
     ) -> tuple[Position, Direction]: ...
-
-    @abstractmethod
-    def is_position_blocked(self, position: Position) -> bool: ...
 
 
 def move_once(
@@ -188,8 +192,7 @@ def calculate_new_inner_position(
 
 class FallCorrector(PositionCorrector):
     def __init__(self, board_info: Board):
-        self.n: int = board_info.face_side
-        self._board_info = board_info
+        super().__init__(board_info)
         self.neighbors: dict[(Coordinates, Direction), (Coordinates, Direction)] = {}
         keys = board_info.faces.keys()
 
@@ -231,11 +234,6 @@ class FallCorrector(PositionCorrector):
                 Direction.UP,
             )
 
-    def is_position_blocked(self, position: Position) -> bool:
-        return self._board_info.faces[position.outer][position.inner.row][
-            position.inner.col
-        ]
-
     def correct_position(
         self, position: Position, direction: Direction
     ) -> tuple[Position, Direction]:
@@ -252,13 +250,6 @@ class FallCorrector(PositionCorrector):
 
 
 class CubeCorrector(PositionCorrector):
-    def __init__(self, board_info: Board):
-        self.n: int = board_info.face_side
-        self._board_info = board_info
-
-    def is_position_blocked(self, pos: Position) -> bool:
-        return self._board_info.faces[pos.outer][pos.inner.row][pos.inner.col]
-
     def _calculate_inner_coordinates(
         self,
         old_position: Position,
@@ -272,154 +263,130 @@ class CubeCorrector(PositionCorrector):
             else old_position.inner.col
         )
         corrected_value = self.n - 1 - value if inverse else value
-        new_row = (
-            0
-            if new_direction == Direction.DOWN
-            else self.n - 1
-            if new_direction == Direction.UP
-            else corrected_value
-        )
-        new_col = (
-            0
-            if new_direction == Direction.RIGHT
-            else self.n - 1
-            if new_direction == Direction.LEFT
-            else corrected_value
-        )
-        return Coordinates(new_row, new_col)
+
+        match new_direction:
+            case Direction.DOWN:
+                return Coordinates(0, corrected_value)
+            case Direction.UP:
+                return Coordinates(self.n - 1, corrected_value)
+            case Direction.RIGHT:
+                return Coordinates(corrected_value, 0)
+            case Direction.LEFT:
+                return Coordinates(corrected_value, self.n - 1)
 
     def correct_position(
         self, position: Position, direction: Direction
     ) -> tuple[Position, Direction]:
         old_side = position_to_side(position, self.n)
 
+        inverse = (position.outer, old_side) in [
+            (Coordinates(0, 1), Direction.LEFT),
+            (Coordinates(2, 0), Direction.LEFT),
+            (Coordinates(0, 2), Direction.RIGHT),
+            (Coordinates(2, 1), Direction.RIGHT),
+        ]
+
         transform_dict = {
             (Coordinates(0, 1), Direction.RIGHT): (
                 Coordinates(0, 2),
                 Direction.RIGHT,
-                False,
             ),
             (Coordinates(0, 2), Direction.LEFT): (
                 Coordinates(0, 1),
                 Direction.LEFT,
-                False,
             ),
             (Coordinates(0, 1), Direction.DOWN): (
                 Coordinates(1, 1),
                 Direction.DOWN,
-                False,
             ),
             (Coordinates(1, 1), Direction.UP): (
                 Coordinates(0, 1),
                 Direction.UP,
-                False,
             ),
             (Coordinates(0, 1), Direction.LEFT): (
                 Coordinates(2, 0),
                 Direction.RIGHT,
-                True,
             ),
             (Coordinates(2, 0), Direction.LEFT): (
                 Coordinates(0, 1),
                 Direction.RIGHT,
-                True,
             ),
             (Coordinates(0, 1), Direction.UP): (
                 Coordinates(3, 0),
                 Direction.RIGHT,
-                False,
             ),
             (Coordinates(3, 0), Direction.LEFT): (
                 Coordinates(0, 1),
                 Direction.DOWN,
-                False,
             ),
             (Coordinates(0, 2), Direction.DOWN): (
                 Coordinates(1, 1),
                 Direction.LEFT,
-                False,
             ),
             (Coordinates(1, 1), Direction.RIGHT): (
                 Coordinates(0, 2),
                 Direction.UP,
-                False,
             ),
             (Coordinates(0, 2), Direction.RIGHT): (
                 Coordinates(2, 1),
                 Direction.LEFT,
-                True,
             ),
             (Coordinates(2, 1), Direction.RIGHT): (
                 Coordinates(0, 2),
                 Direction.LEFT,
-                True,
             ),
             (Coordinates(0, 2), Direction.UP): (
                 Coordinates(3, 0),
                 Direction.UP,
-                False,
             ),
             (Coordinates(3, 0), Direction.DOWN): (
                 Coordinates(0, 2),
                 Direction.DOWN,
-                False,
             ),
             (Coordinates(1, 1), Direction.DOWN): (
                 Coordinates(2, 1),
                 Direction.DOWN,
-                False,
             ),
             (Coordinates(2, 1), Direction.UP): (
                 Coordinates(1, 1),
                 Direction.UP,
-                False,
             ),
             (Coordinates(1, 1), Direction.LEFT): (
                 Coordinates(2, 0),
                 Direction.DOWN,
-                False,
             ),
             (Coordinates(2, 0), Direction.UP): (
                 Coordinates(1, 1),
                 Direction.RIGHT,
-                False,
             ),
             (Coordinates(2, 1), Direction.DOWN): (
                 Coordinates(3, 0),
                 Direction.LEFT,
-                False,
             ),
             (Coordinates(3, 0), Direction.RIGHT): (
                 Coordinates(2, 1),
                 Direction.UP,
-                False,
             ),
             (Coordinates(2, 1), Direction.LEFT): (
                 Coordinates(2, 0),
                 Direction.LEFT,
-                False,
             ),
             (Coordinates(2, 0), Direction.RIGHT): (
                 Coordinates(2, 1),
                 Direction.RIGHT,
-                False,
             ),
             (Coordinates(2, 0), Direction.DOWN): (
                 Coordinates(3, 0),
                 Direction.DOWN,
-                False,
             ),
             (Coordinates(3, 0), Direction.UP): (
                 Coordinates(2, 0),
                 Direction.UP,
-                False,
             ),
         }
 
         if old_side is not None:
-            new_face, new_direction, inverse = transform_dict[
-                (position.outer, old_side)
-            ]
+            new_face, new_direction = transform_dict[(position.outer, old_side)]
             new_inner = self._calculate_inner_coordinates(
                 position, old_side, new_direction, inverse
             )
