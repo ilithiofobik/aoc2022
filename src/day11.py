@@ -1,5 +1,6 @@
 import dataclasses
 from math import prod
+from typing import Callable, List, Tuple
 
 
 @dataclasses.dataclass
@@ -10,28 +11,32 @@ class ThrowTest:
 
 
 class Monkey:
-    def __init__(self, starting_tems, operation, throw_test):
-        self.__items = starting_tems
+    def __init__(
+        self,
+        starting_items: List[int],
+        operation: Callable[[int], int],
+        throw_test: ThrowTest,
+    ):
+        self.__items = starting_items
         self.__operation = operation
         self.__throw_test = throw_test
         self.__inspected_items = 0
 
-    def test_number(self):
+    def test_number(self) -> int:
         return self.__throw_test.number
 
-    def inspected(self):
+    def inspected(self) -> int:
         return self.__inspected_items
 
-    def append_item(self, item):
+    def append_item(self, item: int) -> None:
         self.__items.append(item)
 
-    def throw_test(self, worry_level):
+    def throw_test(self, worry_level: int) -> int:
         if worry_level % self.__throw_test.number == 0:
             return self.__throw_test.t_throw
-
         return self.__throw_test.f_throw
 
-    def do_turn(self, second_op):
+    def do_turn(self, second_op: Callable[[int], int]) -> List[Tuple[int, int]]:
         result = []
 
         for item in self.__items:
@@ -46,13 +51,13 @@ class Monkey:
         return result
 
 
-def read_starting_items(line):
+def read_starting_items(line: str) -> List[int]:
     parts = line.split(":")
     numbers = parts[1].split(",")
     return [int(num.strip()) for num in numbers]
 
 
-def read_operation(line):
+def read_operation(line: str) -> Callable[[int], int]:
     parts = line.split()
     op = parts[-2]
 
@@ -67,7 +72,7 @@ def read_operation(line):
     return lambda x: x**2
 
 
-def read_throw_test(lines):
+def read_throw_test(lines: List[str]) -> ThrowTest:
     num = int(lines[0].split()[-1])
     t_throw = int(lines[1].split()[-1])
     f_throw = int(lines[2].split()[-1])
@@ -75,7 +80,7 @@ def read_throw_test(lines):
     return ThrowTest(num, t_throw, f_throw)
 
 
-def read_monkeys(lines):
+def read_monkeys(lines: List[str]) -> List[Monkey]:
     num_of_monkeys = (len(lines) + 1) // 7
     monkeys = []
 
@@ -89,7 +94,7 @@ def read_monkeys(lines):
     return monkeys
 
 
-def monkey_business(monkeys):
+def monkey_business(monkeys: List[Monkey]) -> int:
     max_inspected = 0
     second_max_inspected = 0
 
@@ -111,7 +116,7 @@ def monkey_business(monkeys):
 ROUNDS1 = 20
 
 
-def part1():
+def part1() -> int:
     with open("data/day11.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
         monkeys = read_monkeys(lines)
@@ -120,7 +125,7 @@ def part1():
             for monkey in monkeys:
                 result = monkey.do_turn(lambda x: x // 3)
                 for new_monkey, worry_level in result:
-                    (monkeys[new_monkey]).append_item(worry_level)
+                    monkeys[new_monkey].append_item(worry_level)
 
         return monkey_business(monkeys)
 
@@ -128,7 +133,7 @@ def part1():
 ROUNDS2 = 10_000
 
 
-def part2():
+def part2() -> int:
     with open("data/day11.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
         monkeys = read_monkeys(lines)
@@ -138,6 +143,6 @@ def part2():
             for monkey in monkeys:
                 result = monkey.do_turn(lambda x: x % common_multiple)
                 for new_monkey, worry_level in result:
-                    (monkeys[new_monkey]).append_item(worry_level)
+                    monkeys[new_monkey].append_item(worry_level)
 
         return monkey_business(monkeys)

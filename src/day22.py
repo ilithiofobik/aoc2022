@@ -74,7 +74,9 @@ class Board:
         num_of_cols = max(len(line) for line in lines) - 1
         n = gcd(num_of_rows, num_of_cols)
         self.face_side = n
-        self.faces = defaultdict(lambda: [[False] * n for _ in range(n)])
+        self.faces: dict[Coordinates, list[list[bool]]] = defaultdict(
+            lambda: [[False] * n for _ in range(n)]
+        )
         for row, line in enumerate(lines):
             for col, c in enumerate(line[:-1]):
                 if obstacle := self.char_to_obstacle(c):
@@ -90,10 +92,10 @@ class Board:
             case _:
                 return None
 
-    def cols_with_given_row(self, row: int) -> Generator[Coordinates, None, None]:
+    def cols_with_given_row(self, row: int) -> Generator[int, None, None]:
         return (key.col for key in self.faces.keys() if key.row == row)
 
-    def rows_with_given_col(self, col: int) -> Generator[Coordinates, None, None]:
+    def rows_with_given_col(self, col: int) -> Generator[int, None, None]:
         return (key.row for key in self.faces.keys() if key.col == col)
 
     def get_start_position(self) -> Position:
@@ -136,7 +138,7 @@ class PositionCorrector(ABC):
 
 def move_once(
     position: Position, direction: Direction, corrector: PositionCorrector
-) -> Optional[Position]:
+) -> Optional[tuple[Position, Direction]]:
     face_change = direction_to_move(direction)
     new_position, new_direction = corrector.correct_position(
         position.add_inner(face_change), direction
@@ -177,7 +179,7 @@ def position_to_side(position: Position, n: int) -> Optional[Direction]:
 class FallCorrector(PositionCorrector):
     def __init__(self, board_info: Board):
         super().__init__(board_info)
-        self.neighbors: dict[(Coordinates, Direction), Coordinates] = {}
+        self.neighbors: dict[tuple[Coordinates, Direction], Coordinates] = {}
         keys = board_info.faces.keys()
 
         for face in keys:
@@ -219,6 +221,7 @@ class FallCorrector(PositionCorrector):
                 return Coordinates(self.n - 1, position.inner.col)
             case Direction.DOWN, Direction.UP:
                 return Coordinates(0, position.inner.col)
+        raise ValueError("Invalid side combination")
 
     def correct_position(
         self, position: Position, direction: Direction

@@ -1,7 +1,10 @@
 import heapq
+from typing import Callable, Generator, List, Set, Tuple
 
 
-def read_heights(lines):
+def read_heights(
+    lines: List[str],
+) -> Tuple[List[List[int]], Tuple[int, int], Tuple[int, int]]:
     board = []
     start = (0, 0)
     end = (0, 0)
@@ -22,11 +25,11 @@ def read_heights(lines):
     return board, start, end
 
 
-def board_size(board):
+def board_size(board: List[List[int]]) -> Tuple[int, int]:
     return len(board), len(board[0])
 
 
-def initialize_distances(n, m, start):
+def initialize_distances(n: int, m: int, start: Tuple[int, int]) -> List[List[int]]:
     infinity = n * m + 1
     distances = [[infinity for _ in range(m)] for _ in range(n)]
     distances[start[0]][start[1]] = 0
@@ -34,7 +37,9 @@ def initialize_distances(n, m, start):
     return distances
 
 
-def neighbors(heights, pos, cond):
+def neighbors(
+    heights: List[List[int]], pos: Tuple[int, int], cond: Callable[[int, int], bool]
+) -> Generator[Tuple[int, int], None, None]:
     row, col = pos
     num_rows, num_cols = len(heights), len(heights[0])
 
@@ -51,12 +56,14 @@ def neighbors(heights, pos, cond):
             yield new_row, new_col
 
 
-def calculate_distances(start, heights, cond):
+def calculate_distances(
+    start: Tuple[int, int], heights: List[List[int]], cond: Callable[[int, int], bool]
+) -> List[List[int]]:
     r_num, c_num = board_size(heights)
     distances = initialize_distances(r_num, c_num, start)
-    pq = [(0, start)]
+    pq: List[Tuple[int, Tuple[int, int]]] = [(0, start)]
     heapq.heapify(pq)
-    visited = set()
+    visited: Set[Tuple[int, int]] = set()
 
     while pq:
         dist, pos = heapq.heappop(pq)
@@ -76,7 +83,7 @@ def calculate_distances(start, heights, cond):
     return distances
 
 
-def part1():
+def part1() -> int:
     with open("data/day12.txt", "r", encoding="utf-8") as data:
         heights, start, end = read_heights(data.readlines())
         distances = calculate_distances(start, heights, lambda x, y: x - y <= 1)
@@ -84,7 +91,9 @@ def part1():
         return distances[end[0]][end[1]]
 
 
-def find_minimum(r_num, c_num, heights, distances):
+def find_minimum(
+    r_num: int, c_num: int, heights: List[List[int]], distances: List[List[int]]
+) -> int:
     minimum = r_num * c_num
 
     for r in range(r_num):
@@ -95,7 +104,7 @@ def find_minimum(r_num, c_num, heights, distances):
     return minimum
 
 
-def part2():
+def part2() -> int:
     with open("data/day12.txt", "r", encoding="utf-8") as data:
         heights, _, end = read_heights(data.readlines())
         r_num, c_num = board_size(heights)

@@ -1,8 +1,11 @@
-def max_dist(x0, y0, x1, y1):
+from typing import Set, Tuple
+
+
+def max_dist(x0: int, y0: int, x1: int, y1: int) -> int:
     return max(abs(x1 - x0), abs(y1 - y0))
 
 
-def move(x, y, direction):
+def move(x: int, y: int, direction: str) -> Tuple[int, int]:
     if direction == "U":
         return x, y + 1
     if direction == "D":
@@ -14,7 +17,7 @@ def move(x, y, direction):
     raise ValueError("Invalid direction")
 
 
-def move_tail(h_x, h_y, t_x, t_y):
+def move_tail(h_x: int, h_y: int, t_x: int, t_y: int) -> Tuple[int, int]:
     if abs(h_x - t_x) <= 1:
         t_x = h_x
     else:
@@ -28,11 +31,11 @@ def move_tail(h_x, h_y, t_x, t_y):
     return t_x, t_y
 
 
-def part1():
+def part1() -> int:
     with open("data/day9.txt", "r", encoding="utf-8") as data:
         h_x, h_y = 0, 0
         t_x, t_y = 0, 0
-        visited = {(0, 0)}
+        visited: Set[Tuple[int, int]] = {(0, 0)}
 
         lines = data.readlines()
         for line in lines:
@@ -52,11 +55,11 @@ def part1():
 K = 10
 
 
-def part2():
+def part2() -> int:
     with open("data/day9.txt", "r", encoding="utf-8") as data:
         x = [0] * K
         y = [0] * K
-        visited = {(0, 0)}
+        visited: Set[Tuple[int, int]] = {(0, 0)}
 
         lines = data.readlines()
         for line in lines:

@@ -1,4 +1,4 @@
-def _all_different(string):
+def _all_different(string: str) -> bool:
     length = len(string)
     return all(
         string[i] != string[j] for i in range(length) for j in range(i + 1, length)

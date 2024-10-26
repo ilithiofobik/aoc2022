@@ -4,9 +4,9 @@ from collections import namedtuple
 Node = namedtuple("Node", ["orig_idx", "value"])
 
 
-def read_input(factor: int = 1) -> tuple[int, list[Node]]:
+def read_input(factor: int = 1) -> list[Node]:
     with open("data/day20.txt", "r", encoding="utf-8") as data:
-        number_arr = [factor * int(l.strip()) for l in data.readlines()]
+        number_arr = [factor * int(line.strip()) for line in data.readlines()]
         return [Node(i, v) for i, v in enumerate(number_arr)]
 
 

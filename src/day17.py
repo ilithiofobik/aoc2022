@@ -1,9 +1,7 @@
 import itertools
-
 from collections import namedtuple
 from operator import lshift, rshift
 from typing import Literal, Optional
-
 
 State = namedtuple("State", ["top_row", "jet_num", "shape_num"])
 
@@ -16,9 +14,7 @@ class Shape:
         self.cells = cells
         self.position = position
 
-    def can_move_horizontal(
-        self, board: set[tuple[int, int]], jet: Literal["<", ">"]
-    ) -> bool:
+    def can_move_horizontal(self, board, jet: Literal["<", ">"]) -> bool:
         blocker = 0b1000000 if jet == "<" else 0b0000001
 
         if any(cell & blocker for cell in self.cells):
@@ -44,7 +40,7 @@ class Shape:
     def height(self) -> int:
         return self.position + len(self.cells) - 1
 
-    def perform_full_fall(self, board: list[int], jets) -> None:
+    def perform_full_fall(self, board: list[int], jets) -> int:
         is_horizontal = True
         movable = True
         last_jet = 0
@@ -138,7 +134,7 @@ def get_height(n: int) -> int:
     jets = get_jets()
     shape_getter = get_shape_getters()
     board_data = BoardData()
-    states = {}
+    states: dict[State, tuple[int, int]] = {}
 
     for step in range(1, n + 1):
         last_shape, shape = next(shape_getter)

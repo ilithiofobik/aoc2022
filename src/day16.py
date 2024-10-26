@@ -1,7 +1,7 @@
 from functools import cache
 
-flow_rate = {}
-neighbors = {}
+flow_rate: dict[str, int] = {}
+neighbors: dict[str, list[str]] = {}
 
 
 def read_input(lines):
