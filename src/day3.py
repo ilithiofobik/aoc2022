@@ -24,7 +24,7 @@ def line_to_points(line):
 def part1():
     with open("data/day3.txt", "r", encoding="utf-8") as data:
         lines = data.readlines()
-        return sum(line_to_points(l) for l in lines)
+        return sum(line_to_points(line) for line in lines)
 
 
 def part2():

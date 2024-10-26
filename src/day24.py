@@ -64,7 +64,7 @@ class Basin:
     def run_simulation(self):
         counter = 0
 
-        while self.ending not in self.achievable:
+        while True:
             counter += 1
             new_achievable = set()
 
@@ -72,13 +72,27 @@ class Basin:
 
             for pos in self.achievable:
                 for neighbor in self.neighbors(pos):
+                    if neighbor == self.ending:
+                        return counter
                     if self.is_there_a_blizzard(neighbor):
                         continue
                     new_achievable.add(neighbor)
 
             self.achievable = new_achievable
 
-        return counter
+
+def char_to_direction(char):
+    match char:
+        case "v":
+            return Direction.D
+        case "^":
+            return Direction.U
+        case "<":
+            return Direction.L
+        case ">":
+            return Direction.R
+        case _:
+            return None
 
 
 def read_input(lines):
@@ -89,14 +103,8 @@ def read_input(lines):
 
     for x, line in enumerate(lines[1:]):
         for y, char in enumerate(line[1:].strip()):
-            if char == "v":
-                blizzards.append(Blizzard(Direction.D, x, y))
-            elif char == "^":
-                blizzards.append(Blizzard(Direction.U, x, y))
-            elif char == "<":
-                blizzards.append(Blizzard(Direction.L, x, y))
-            elif char == ">":
-                blizzards.append(Blizzard(Direction.R, x, y))
+            if direction := char_to_direction(char):
+                blizzards.append(Blizzard(direction, x, y))
 
     return blizzards, mod_x, mod_y
 
